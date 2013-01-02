@@ -1,9 +1,10 @@
-// initial plan: pop a pill at the top, let gravity let it drop to the bottom with controls, then stay there
+// dr mike
 
 // consts
 // game states
 var GAME_PLAY = 0;
 var GAME_OVER = 1;
+var GAME_LOAD = 2;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;
@@ -13,25 +14,42 @@ var KEY_D = 68;
 var KEY_F = 70;
 // d-pad stats
 var DIR_NO = 0;
-var DIR_LT = -1;
-var DIR_RT = 1;
-var DIR_DN = 2;
+var DIR_LT = 1;
+var DIR_RT = 2;
+var DIR_DN = 3;
+// d-pad -> directions map
+var DIR_MOVES = [[0,0], [-1,0], [1,0], [0,1]];
 // rot states
 var ROT_LEFT = 1;
 var ROT_RIGHT = -1;
 var ROT_NONE = 0;
+// offsets for the second part of a pill in a given rotation (90 degree increments)
+var ROT_SND = [[0,1],[-1,0],[0,-1],[1,0]];
+// color names
+var COL_YEL = 0;
+var COL_TEA = 1;
+var COL_MAG = 2;
+// pill sprite -> colors map
+var COL_PILLS = [[COL_YEL,COL_YEL], [COL_YEL,COL_MAG], [COL_TEA, COL_YEL],
+		 [COL_TEA,COL_TEA], [COL_MAG,COL_TEA], [COL_MAG, COL_MAG]];
 // index -> pixel conversion
 var SQUARESZ = 20;
 var BOARDXOFF = 25;
 var BOARDYOFF = 30;
-var FRIENDLY = 32; // how often to call main
+// how often to call main (ms)
+var FRIENDLY = 32;
 
-// Create the canvas
+// create the canvas
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
 canvas.width = 512;
 canvas.height = 480;
 document.body.appendChild(canvas);
+
+// utilities
+var randN = function (n) { // 0 ... n-1 random num
+    return Math.floor(Math.random()*n);
+}
 
 // load images
 var Sprite = function(src) {
@@ -45,10 +63,25 @@ var Sprite = function(src) {
 }
 
 bgIm = new Sprite("images/background.png");
-pillIm = new Sprite("images/pill.png");
+halfIms = [ // yel, tea, mag
+    new Sprite("images/pilly.png"),
+    new Sprite("images/pillt.png"),
+    new Sprite("images/pillm.png")];
+pillIms = [ // yel, tea, mag
+    new Sprite("images/pillyy.png"), // 00
+    new Sprite("images/pillym.png"), // 02
+    new Sprite("images/pillty.png"), // 10
+    new Sprite("images/pilltt.png"), // 11
+    new Sprite("images/pillmt.png"), // 21
+    new Sprite("images/pillmm.png")];// 22
 
 // game objects
-var state = GAME_PLAY;
+var cfg = {
+    fall_rate : 500, // how long between falls
+    fast_move : 100, // how long between moves in fast mode
+    fast_start : 500, // how long to press down before fast mode
+};
+var state = GAME_LOAD;
 var last_update = Date.now();
 var pressed = false;
 var points = 0;
@@ -71,12 +104,78 @@ board.show = function () {
 	    if(board[j][i] == null) {
 		line = line + '.';
 	    } else {
-		line = line + 'o';
+		col = board[j][i].color(j,i);
+		var cols = ['y', 't', 'm'];
+		line = line + cols[col];
 	    }
 	}
 	console.log(line);
     }
 }
+board.kill_matches = function (matches) {
+    for (var i = 0 ; i < matches.length ; i++) {
+	for (var j = 0 ; j < matches[i].length ; j++) {
+	    board[matches[i][j][0]][matches[i][j][1]] = null;
+	}
+    }
+    // now run through the board, return objects still on it. let them adjust themselves if
+    // necessary (pills may have to return just a half-pill)
+    var ordered = [];
+    for (var i = 0 ; i < board.width ; i++) {
+	for (var j = 0 ; j < board.height ; j++) {
+	    if (board[i][j] != null) {
+		var newbie = board[i][j].adjust();
+		ordered[ordered.length] = newbie;
+	    }
+	}
+    }
+    return ordered.filter(function(s, i, a){ return i == a.lastIndexOf(s); });
+}
+
+board.seek_matches = function () {
+    var matches = [];
+    // check vertical matches
+    for (var i = 0 ; i < board.width ; i++) {
+	var sofar = 1;
+	for (var j = 1 ; j <= board.height ; j++) {
+	    // count as long as we're in the board, we're on colors, and they're the same
+	    if ((j < board.height)
+		&& ((board[i][j] != null) && (board[i][j-1] != null))
+		&& (board[i][j].color(i,j) == board[i][j-1].color(i,j-1))) {
+		sofar++;
+	    } else {
+		if (sofar >= 4) {
+		    matches[matches.length] = [];
+		    for (var k = (j - sofar) ; k < j ; k++) {
+			matches[matches.length-1].push([i,k]);
+		    }
+		}
+		sofar = 1;
+	    }
+	}
+    }
+    // check horizontal matches
+    for (var j = 0 ; j < board.height ; j++) {
+	var sofar = 1;
+	for (var i = 1 ; i <= board.width ; i++) {
+	    if ((i < board.width)
+		&& ((board[i][j] != null) && (board[i-1][j] != null))
+		&& (board[i][j].color(i,j) == board[i-1][j].color(i-1,j))) {
+		sofar++;
+	    } else {
+		if (sofar >= 4) {
+		    matches[matches.length] = [];
+		    for (var k = (i - sofar) ; k < i ; k++) {
+			matches[matches.length-1].push([k,j]);
+		    }
+		}
+		sofar = 1;
+	    }
+	}
+    }
+    return matches;
+}
+
 board.open = function (indi,indj,obj) { // check if obj can be in this location
     if ((indi < 0) || (indj < 0) || (indi >= board.width) || (indj >= board.height)) {
 	return false;
@@ -135,27 +234,74 @@ Occupant.prototype.place = function (newpos) {
     return true;
 }
 
-var Pill = function() {
-    this.rotation = 1; // number of 90 degree rotations
+var HalfPill = function(frompill,which_half) {
+    indi = frompill.pos[0] + frompill.locations[which_half][0];
+    indj = frompill.pos[1] + frompill.locations[which_half][1];
+    this.pos = [indi,indj];
+    this.locations = [[0,0]];
+    if (which_half == 0) {
+	this.rotation = frompill.rotation;
+    } else {
+	this.rotation = (frompill.rotation + 2) % 4;
+    }
+    this.colors = frompill.colors[which_half];
+    this.sprite = halfIms[frompill.colors[which_half]];
+}
+HalfPill.prototype = new Occupant();
+HalfPill.prototype.color = function (i,j) {
+    if ((i != this.pos[0]) || (j != this.pos[1])) {
+	return false;
+    } else {
+	return this.colors;
+    }
+}
+HalfPill.prototype.adjust = function () {
+    return this;
+}
+
+var Pill = function(pilltype) {
+    this.rotation = 0; // number of 90 degree rotations
     this.under_ctl = true;
-    this.locations = [[0,0],[-1,0]]; // offsetted locations in board occupied by this sprite
+    this.locations = [[0,0],ROT_SND[this.rotation]]; // offsetted locations in board occupied by this sprite
+    this.colors = COL_PILLS[pilltype];
     this.pos = [];
     if (! this.place([board.width/2 , 0])) {
 	console.log('end of game');
 	state = GAME_OVER;
     }
-    this.sprite = pillIm;
+    this.sprite = pillIms[pilltype];
 };
 Pill.prototype = new Occupant();
+Pill.prototype.adjust = function () {
+    // the pill is on the board, but may be a half-pill now
+    sndi = this.pos[0] + this.locations[1][0];
+    sndj = this.pos[1] + this.locations[1][1];
+    if ((board[this.pos[0]][this.pos[1]] == this)
+	&& (board[sndi][sndj] == this)) {
+	return this;
+    } else if(board[this.pos[0]][this.pos[1]] == null) {
+	half = new HalfPill(this,1);
+	indi = this.pos[0] + this.locations[1][0];
+	indj = this.pos[1] + this.locations[1][1];
+	board[indi][indj] = half;
+	return half;
+    } else if(board[sndi][sndj] == null) {
+	half = new HalfPill(this,0);
+	board[this.pos[0]][this.pos[1]] = half;
+	return half;
+    } else {
+	console.log('erroneous call?');
+	return this;
+    }
+}
 Pill.prototype.rotate = function (offset) {
-    newsecond = [[0,1],[-1,0],[0,-1],[1,0]]; // offsets for the rotations
     newrotation = (this.rotation + offset) % 4;
     if (newrotation < 0) { // trying to implement mod 4 : 0,1,2,3
 	newrotation += 4;
     }
     // check if this new second location is taken
-    newindi = this.pos[0] + newsecond[newrotation][0];
-    newindj = this.pos[1] + newsecond[newrotation][1];
+    newindi = this.pos[0] + ROT_SND[newrotation][0];
+    newindj = this.pos[1] + ROT_SND[newrotation][1];
     if (! board.open(newindi, newindj, this)) {
 	return false;
     }
@@ -166,14 +312,25 @@ Pill.prototype.rotate = function (offset) {
     // add the new
     board[newindi][newindj] = this;
     this.rotation = newrotation;
-    this.locations[1] = newsecond[this.rotation];
+    this.locations[1] = ROT_SND[this.rotation];
+}
+Pill.prototype.color = function (i,j) { // what color is at location i,j
+    sndi = this.pos[0] + this.locations[1][0];
+    sndj = this.pos[1] + this.locations[1][1];
+    if ((i == this.pos[0]) && (j == this.pos[1])) {
+	return this.colors[0];
+    } else if ((i == sndi)  && (j == sndj)) {
+	return this.colors[1];
+    } else {
+	return false;
+    }
 }
 Pill.prototype.fall = function () {
     if(! (this.place([this.pos[0], this.pos[1]+1]))) {
 	this.under_ctl = false;
     }
 }
-pill = new Pill();
+pill = new Pill(randN(pillIms.length));
 all = [pill];
 
 // Handle keyboard controls
@@ -212,60 +369,54 @@ var update = function (modifier) {
 	rot = ROT_NONE;
     }
 
-    if (now - last_update > 500) {
+    if (now - last_update > cfg.fall_rate) {
 	pill.fall();
-	last_update = now;
+	last_update = last_update + cfg.fall_rate;
     }
 
     if (pill.under_ctl) {
 	if (rot != ROT_NONE) {
 	    pill.rotate(rot);
 	}
-	if ((dir == DIR_RT) || (dir == DIR_LT)) {
-	    if (pressed == false) {
-		pill.move([dir,0]);
-		pressed = {
-		    dir : dir,
-		    start : now,
-		    wait : 500
+
+	if (dir != DIR_NO) {
+	    if ((pressed == false) || (pressed.dir != dir)) {
+		pill.move(DIR_MOVES[dir]);
+		if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
+		    last_update = now;
 		}
-	    } else if (pressed.dir != dir) {
-		pill.move([dir,0]);
 		pressed = {
 		    dir : dir,
 		    start : now,
-		    wait : 500
+		    wait : cfg.fast_start
 		}
 	    } else { // same thing as last time pressed
 		if ( (now - pressed.start) > pressed.wait) {
-		    pill.move([dir,0]);
+		    pill.move(DIR_MOVES[dir]);
 		    pressed = {
 			dir : dir,
-			start : now,
-			wait : 100
+			start : pressed.start + pressed.wait,
+			wait : cfg.fast_move
 		    }
 		}
 	    }
-	} else if (dir == DIR_NO) {
+	} else {
 	    pressed = false;
 	}
     } else {
-	pill = new Pill();
+	matches = board.seek_matches();
+	all = board.kill_matches(matches);
+	pill = new Pill(randN(pillIms.length));
 	all.push(pill);
     }
 };
 
 // Draw everything
 var render = function () {
-    if (bgIm.ready) {
-	ctx.drawImage(bgIm.image, 0, 0);
-    }
+    ctx.drawImage(bgIm.image, 0, 0);
     
-    
-    if (pillIm.ready) {
-	for(i = 0 ; i < all.length ; i++) {
-	    all[i].render();
-	}
+    for(i = 0 ; i < all.length ; i++) {
+	all[i].render();
     }
     
     // Score
@@ -280,8 +431,19 @@ var render = function () {
 var main = function () {
     if (state == GAME_PLAY) {
 	update();
+	render();
+    } else if (state == GAME_LOAD) {
+	checks = [].concat([bgIm],pillIms,halfIms);
+	var ready = true;
+	for (var i = 0 ; i < checks.length ; i++) {
+	    if (! checks[i].ready) {
+		ready = false;
+	    }
+	}
+	if (ready == true) {
+	    state = GAME_PLAY;
+	}
     }
-    render();
 };
 
 // Let's play this game!
