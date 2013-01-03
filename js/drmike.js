@@ -2,9 +2,10 @@
 
 // consts
 // game states
-var GAME_PLAY = 0;
+var GAME_CTLPILL = 0;
 var GAME_OVER = 1;
 var GAME_LOAD = 2;
+var GAME_FALLING = 3;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;
@@ -77,7 +78,8 @@ pillIms = [ // yel, tea, mag
 
 // game objects
 var cfg = {
-    fall_rate : 500, // how long between falls
+    user_fall_rate : 500, // how long between falls
+    grav_fall_rate : 250, // how long between falls
     fast_move : 100, // how long between moves in fast mode
     fast_start : 500, // how long to press down before fast mode
 };
@@ -189,11 +191,14 @@ board.open = function (indi,indj,obj) { // check if obj can be in this location
 // occupants of the board are virii or pills
 var Occupant = function () {};
 // Occupants will need: sprite, pos, locations, rotation
+Occupant.prototype.getpos = function (i) {
+    return [this.pos[0] + this.locations[i][0], this.pos[1] + this.locations[i][1]]
+};
 Occupant.prototype.render = function () {
     var locx, locy;
     
-    locx = BOARDXOFF + SQUARESZ*(this.pos[0]+this.locations[0][0]);
-    locy = BOARDYOFF + SQUARESZ*(this.pos[1] + this.locations[0][1]);
+    locx = BOARDXOFF + SQUARESZ*this.pos[0];
+    locy = BOARDYOFF + SQUARESZ*this.pos[1];
     ctx.save();
     ctx.translate(locx + SQUARESZ/2,locy + SQUARESZ/2);
     ctx.rotate(this.rotation*Math.PI/2);
@@ -216,9 +221,7 @@ Occupant.prototype.place = function (newpos) {
     // since the entire spot is free, go ahead and delete the old spot
     if (this.pos.length == 2) { // unless this is its first position, then pos = []
 	for(i = 0 ; i < this.locations.length ; i++) {
-	    indi = this.pos[0] + this.locations[i][0];
-	    indj = this.pos[1] + this.locations[i][1]
-	    board[indi][indj] = null;
+	    board[this.getpos(i)[0]][this.getpos(i)[1]] = null;
 	}
     }
     // and load the new spot
@@ -233,11 +236,12 @@ Occupant.prototype.place = function (newpos) {
     }
     return true;
 }
+Occupant.prototype.fall = function () {
+    return this.place([this.pos[0], this.pos[1]+1]);
+}
 
 var HalfPill = function(frompill,which_half) {
-    indi = frompill.pos[0] + frompill.locations[which_half][0];
-    indj = frompill.pos[1] + frompill.locations[which_half][1];
-    this.pos = [indi,indj];
+    this.pos = frompill.getpos(which_half);
     this.locations = [[0,0]];
     if (which_half == 0) {
 	this.rotation = frompill.rotation;
@@ -261,7 +265,6 @@ HalfPill.prototype.adjust = function () {
 
 var Pill = function(pilltype) {
     this.rotation = 0; // number of 90 degree rotations
-    this.under_ctl = true;
     this.locations = [[0,0],ROT_SND[this.rotation]]; // offsetted locations in board occupied by this sprite
     this.colors = COL_PILLS[pilltype];
     this.pos = [];
@@ -274,18 +277,14 @@ var Pill = function(pilltype) {
 Pill.prototype = new Occupant();
 Pill.prototype.adjust = function () {
     // the pill is on the board, but may be a half-pill now
-    sndi = this.pos[0] + this.locations[1][0];
-    sndj = this.pos[1] + this.locations[1][1];
     if ((board[this.pos[0]][this.pos[1]] == this)
-	&& (board[sndi][sndj] == this)) {
+	&& (board[this.getpos(1)[0]][this.getpos(1)[1]] == this)) {
 	return this;
     } else if(board[this.pos[0]][this.pos[1]] == null) {
 	half = new HalfPill(this,1);
-	indi = this.pos[0] + this.locations[1][0];
-	indj = this.pos[1] + this.locations[1][1];
-	board[indi][indj] = half;
+	board[this.getpos(1)[0]][this.getpos(1)[1]] = half;
 	return half;
-    } else if(board[sndi][sndj] == null) {
+    } else if(board[this.getpos(1)[0]][this.getpos(1)[1]] == null) {
 	half = new HalfPill(this,0);
 	board[this.pos[0]][this.pos[1]] = half;
 	return half;
@@ -306,28 +305,19 @@ Pill.prototype.rotate = function (offset) {
 	return false;
     }
     // remove the old spot
-    indi = this.pos[0] + this.locations[1][0];
-    indj = this.pos[1] + this.locations[1][1];
-    board[indi][indj] = null;
+    board[this.getpos(1)[0]][this.getpos(1)[1]] = null;
     // add the new
     board[newindi][newindj] = this;
     this.rotation = newrotation;
     this.locations[1] = ROT_SND[this.rotation];
 }
 Pill.prototype.color = function (i,j) { // what color is at location i,j
-    sndi = this.pos[0] + this.locations[1][0];
-    sndj = this.pos[1] + this.locations[1][1];
     if ((i == this.pos[0]) && (j == this.pos[1])) {
 	return this.colors[0];
-    } else if ((i == sndi)  && (j == sndj)) {
+    } else if ((i == this.getpos(1)[0])  && (j == this.getpos(1)[1])) {
 	return this.colors[1];
     } else {
 	return false;
-    }
-}
-Pill.prototype.fall = function () {
-    if(! (this.place([this.pos[0], this.pos[1]+1]))) {
-	this.under_ctl = false;
     }
 }
 pill = new Pill(randN(pillIms.length));
@@ -345,7 +335,7 @@ addEventListener("keyup", function (e) {
 }, false);
 
 // update game objects
-var update = function (modifier) {
+var handle_moves = function (modifier) {
     var now = Date.now();
 
     // convert the keys to more like a d-pad, only one direction at a time
@@ -369,47 +359,54 @@ var update = function (modifier) {
 	rot = ROT_NONE;
     }
 
-    if (now - last_update > cfg.fall_rate) {
-	pill.fall();
-	last_update = last_update + cfg.fall_rate;
+    if (rot != ROT_NONE) {
+	pill.rotate(rot);
     }
-
-    if (pill.under_ctl) {
-	if (rot != ROT_NONE) {
-	    pill.rotate(rot);
-	}
-
-	if (dir != DIR_NO) {
-	    if ((pressed == false) || (pressed.dir != dir)) {
+    
+    if (dir != DIR_NO) {
+	if ((pressed == false) || (pressed.dir != dir)) {
+	    pill.move(DIR_MOVES[dir]);
+	    if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
+		last_update = now;
+	    }
+	    pressed = {
+		dir : dir,
+		start : now,
+		wait : cfg.fast_start
+	    }
+	} else { // same thing as last time pressed
+	    if ( (now - pressed.start) > pressed.wait) {
 		pill.move(DIR_MOVES[dir]);
-		if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
-		    last_update = now;
-		}
 		pressed = {
 		    dir : dir,
-		    start : now,
-		    wait : cfg.fast_start
-		}
-	    } else { // same thing as last time pressed
-		if ( (now - pressed.start) > pressed.wait) {
-		    pill.move(DIR_MOVES[dir]);
-		    pressed = {
-			dir : dir,
-			start : pressed.start + pressed.wait,
-			wait : cfg.fast_move
-		    }
+		    start : pressed.start + pressed.wait,
+		    wait : cfg.fast_move
 		}
 	    }
-	} else {
-	    pressed = false;
 	}
     } else {
-	matches = board.seek_matches();
-	all = board.kill_matches(matches);
-	pill = new Pill(randN(pillIms.length));
-	all.push(pill);
+	pressed = false;
+    }
+
+    if ((now - last_update) > cfg.user_fall_rate) {
+	if(! pill.fall()) {
+	    matches = board.seek_matches();
+	    all = board.kill_matches(matches);
+	    if (matches.length == 0) {
+		pill = new Pill(randN(pillIms.length));
+		all.push(pill);
+		state = GAME_CTLPILL;
+		last_update = last_update + cfg.user_fall_rate;
+	    } else {
+		state = GAME_FALLING;
+		last_update = last_update + cfg.grav_fall_rate;
+	    }
+	} else {
+	    last_update = last_update + cfg.user_fall_rate;
+	}
     }
 };
+
 
 // Draw everything
 var render = function () {
@@ -427,10 +424,33 @@ var render = function () {
     ctx.fillText("Points: " + points, 32, 32);
 };
 
+var handle_fall = function () {
+    now = Date.now();
+
+    if ((now - last_update) > cfg.grav_fall_rate) {
+	last_update = last_update + cfg.grav_fall_rate;
+	var falling = false;
+	for (i in all) {
+	    thisone = all[i].fall();
+	    falling = falling || thisone;
+	}
+	if (! falling) {
+	    matches = board.seek_matches();
+	    all = board.kill_matches(matches);
+	    if (matches.length == 0) {
+		pill = new Pill(randN(pillIms.length));
+		all.push(pill);
+		state = GAME_CTLPILL;
+	    } else {
+		state = GAME_FALLING;
+	    }
+	}
+    }
+}
 // The main game loop
 var main = function () {
-    if (state == GAME_PLAY) {
-	update();
+    if (state == GAME_CTLPILL) {
+	handle_moves();
 	render();
     } else if (state == GAME_LOAD) {
 	checks = [].concat([bgIm],pillIms,halfIms);
@@ -441,8 +461,11 @@ var main = function () {
 	    }
 	}
 	if (ready == true) {
-	    state = GAME_PLAY;
+	    state = GAME_CTLPILL;
 	}
+    } else if (state == GAME_FALLING) {
+	handle_fall();
+	render();
     }
 };
 
