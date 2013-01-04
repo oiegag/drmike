@@ -33,12 +33,17 @@ var COL_MAG = 2;
 // pill sprite -> colors map
 var COL_PILLS = [[COL_YEL,COL_YEL], [COL_YEL,COL_MAG], [COL_TEA, COL_YEL],
 		 [COL_TEA,COL_TEA], [COL_MAG,COL_TEA], [COL_MAG, COL_MAG]];
+// virus animations
+var VIR_ANI_BREATHE = 0;
+var VIR_ANI_FIDGET = 1;
+var VIR_ANI_BIRTH = 2;
+var VIR_ANI_BIRTHING = 3;
 // index -> pixel conversion
 var SQUARESZ = 20;
 var BOARDXOFF = 25;
 var BOARDYOFF = 30;
 // how often to call main (ms)
-var FRIENDLY = 32;
+var FRIENDLY = 25;
 
 // create the canvas
 var canvas = document.createElement("canvas");
@@ -63,22 +68,19 @@ var Sprite = function(src) {
     this.image.src = src;
 }
 
-bgIm = new Sprite("images/background.png");
-halfIms = [ // yel, tea, mag
+var bgIm = new Sprite("images/background.png");
+var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
     new Sprite("images/pillt.png"),
     new Sprite("images/pillm.png")];
-pillIms = [ // yel, tea, mag
+var pillIms = [ // yel, tea, mag
     new Sprite("images/pillyy.png"), // 00
     new Sprite("images/pillym.png"), // 02
     new Sprite("images/pillty.png"), // 10
     new Sprite("images/pilltt.png"), // 11
     new Sprite("images/pillmt.png"), // 21
     new Sprite("images/pillmm.png")];// 22
-virusIms = [ // yel, tea, mag
-    new Sprite("images/virus_y_neutral.png"),
-    new Sprite("images/virus_t_neutral.png"),
-    new Sprite("images/virus_m_neutral.png")];
+var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 
 // game objects
 var cfg = {
@@ -86,7 +88,8 @@ var cfg = {
     grav_fall_rate : 250, // how long between falls
     fast_move : 100, // how long between moves in fast mode
     fast_start : 500, // how long to press down before fast mode
-    vir_rep : 3
+    vir_rep : 3,
+    animate_wait_time : 300
 };
 var state = GAME_LOAD;
 var last_update = Date.now();
@@ -207,6 +210,8 @@ var Occupant = function () {};
 Occupant.prototype.getpos = function (i) {
     return [this.pos[0] + this.locations[i][0], this.pos[1] + this.locations[i][1]]
 };
+Occupant.prototype.spritepos = [0, 0];
+Occupant.prototype.size = [SQUARESZ, SQUARESZ];
 Occupant.prototype.render = function () {
     var locx, locy;
     
@@ -215,7 +220,8 @@ Occupant.prototype.render = function () {
     ctx.save();
     ctx.translate(locx + SQUARESZ/2,locy + SQUARESZ/2);
     ctx.rotate(this.rotation*Math.PI/2);
-    ctx.drawImage(this.sprite.image, -SQUARESZ/2, -SQUARESZ/2);
+    ctx.drawImage(this.sprite.image, this.spritepos[0]*SQUARESZ,
+		  this.spritepos[1]*SQUARESZ, this.size[0], this.size[1], -SQUARESZ/2, -SQUARESZ/2, this.size[0], this.size[1]);
     ctx.restore();
 }
 Occupant.prototype.move = function (offset) {
@@ -268,8 +274,13 @@ var Virus = function(pos,color) {
     this.pos = pos;
     this.locations = [[0,0]];
     this.colors = color;
-    this.sprite = virusIms[color];
+    this.sprite = virusIms;
+    this.spritepos = [color, 10]; // empty square birth sequence
     this.cycle = cfg.vir_rep;
+    this.last_update = Date.now();
+    this.wait_time = cfg.animate_wait_time;
+    this.aniseq = 2; // two empties before birth
+    this.ani_state = VIR_ANI_BIRTH;
     if (! this.place(pos)) {
 	return false;
     } else {
@@ -281,7 +292,7 @@ Virus.prototype.fall = function () {};
 Virus.prototype.reproduce = function () {
     this.cycle--;
     if(! this.cycle) {
-	availables = [];
+	var availables = [];
 	if (board.open(this.pos[0]+1,this.pos[1],this)) {
 	    availables.push([this.pos[0]+1,this.pos[1]]);
 	}
@@ -296,8 +307,55 @@ Virus.prototype.reproduce = function () {
 	}
 	if (availables.length > 0) {
 	    all.push(new Virus(availables[randN(availables.length)],this.colors));
+	    this.ani_state = VIR_ANI_BIRTHING;
+	    this.spritepos[1] = 7; // beginning of birth sequence
 	}
 	this.cycle = cfg.vir_rep;
+    }
+}
+Virus.prototype.animate = function (now) {
+    if ((now - this.last_update) > this.wait_time) {
+	this.last_update = now;
+	if (this.ani_state == VIR_ANI_BREATHE) {
+	    this.spritepos[1] = (this.spritepos[1] + 1) % 4;
+	    if(this.spritepos[1] == 0) {
+		this.aniseq--;
+	    }
+	    if (this.aniseq == 0) {
+		this.ani_state = VIR_ANI_FIDGET;
+		this.spritepos[1] = 4
+	    }
+	} else if(this.ani_state == VIR_ANI_FIDGET) {
+	    this.spritepos[1]++;
+	    if (this.spritepos[1] == 7) {
+		this.spritepos[1] = 0;
+		this.aniseq = randN(4)+2;
+		this.ani_state = VIR_ANI_BREATHE;
+	    }
+	} else if(this.ani_state == VIR_ANI_BIRTH) {
+	    if (this.aniseq > 0) {
+		this.aniseq--;
+	    } else {
+		this.spritepos[1]++;
+		if (this.spritepos[1] == 13) {
+		    this.aniseq = randN(4) + 2;
+		    this.ani_state = VIR_ANI_BREATHE;
+		    this.spritepos[1] = 0;
+		}
+	    }
+	} else if (this.ani_state == VIR_ANI_BIRTHING) {
+	    if (this.spritepos[1] < 9) {
+		this.spritepos[1]++;
+		this.aniseq = 2;
+	    } else {
+		this.aniseq--;
+		if (this.aniseq == 0) {
+		    this.spritepos[1] = 0;
+		    this.aniseq = randN(4) + 2;
+		    this.ani_state = VIR_ANI_BREATHE;
+		}
+	    }
+	}
     }
 }
 
@@ -326,6 +384,7 @@ var Pill = function(pilltype) {
     this.sprite = pillIms[pilltype];
 };
 Pill.prototype = new Occupant();
+Pill.prototype.size = [SQUARESZ, SQUARESZ*2];
 Pill.prototype.adjust = function () {
     // the pill is on the board, but may be a half-pill now
     if ((board[this.pos[0]][this.pos[1]] == this)
@@ -345,13 +404,13 @@ Pill.prototype.adjust = function () {
     }
 }
 Pill.prototype.rotate = function (offset) {
-    newrotation = (this.rotation + offset) % 4;
+    var newrotation = (this.rotation + offset) % 4;
     if (newrotation < 0) { // trying to implement mod 4 : 0,1,2,3
 	newrotation += 4;
     }
     // check if this new second location is taken
-    newindi = this.pos[0] + ROT_SND[newrotation][0];
-    newindj = this.pos[1] + ROT_SND[newrotation][1];
+    var newindi = this.pos[0] + ROT_SND[newrotation][0];
+    var newindj = this.pos[1] + ROT_SND[newrotation][1];
     if (! board.open(newindi, newindj, this)) {
 	return false;
     }
@@ -387,7 +446,7 @@ addEventListener("keyup", function (e) {
 
 // update game objects
 var handle_moves = function (modifier) {
-    var now = Date.now();
+    var now = Date.now(), dir = null, rot = null;
 
     // convert the keys to more like a d-pad, only one direction at a time
     if ((KEY_LT in keyEvent) && !(KEY_RT in keyEvent) && !(KEY_DN in keyEvent)) {
@@ -441,12 +500,18 @@ var handle_moves = function (modifier) {
 
     if ((now - last_update) > cfg.user_fall_rate) {
 	if(! pill.fall()) {
+	    // so if you kill matches first, then reproduce it's possible to
+	    // grow into a 4-in-a-row that won't be checked until the next
+	    // pill comes. if you reproduce then kill, katie gets mad because
+	    // you're constantly having them "get away"
+	    matches1 = board.seek_matches();
+	    all = board.kill_matches(matches1);
 	    for (i in all) {
 		all[i].reproduce();
 	    }
-	    matches = board.seek_matches();
-	    all = board.kill_matches(matches);
-	    if (matches.length == 0) {
+	    matches2 = board.seek_matches();
+	    all = board.kill_matches(matches2);
+	    if ((matches1.length + matches2.length) == 0) {
 		pill = new Pill(randN(pillIms.length));
 		if (state != GAME_OVER) {
 		    all.push(pill);
@@ -468,7 +533,7 @@ var handle_moves = function (modifier) {
 var render = function () {
     ctx.drawImage(bgIm.image, 0, 0);
     
-    for(i = 0 ; i < all.length ; i++) {
+    for(var i = 0 ; i < all.length ; i++) {
 	all[i].render();
     }
     
@@ -480,8 +545,9 @@ var render = function () {
     ctx.fillText("Points: " + points, 32, 32);
 };
 
+// make pills fall
 var handle_fall = function () {
-    now = Date.now();
+    var now = Date.now();
 
     if ((now - last_update) > cfg.grav_fall_rate) {
 	last_update = last_update + cfg.grav_fall_rate;
@@ -505,13 +571,26 @@ var handle_fall = function () {
 	}
     }
 }
+
+// call all animatable objects with current time
+var handle_animations = function () {
+    var now = Date.now();
+
+    for (var i in all) {
+	if (all[i] instanceof Virus) {
+	    all[i].animate(now);
+	}
+    }
+}
+
 // The main game loop
 var main = function () {
     if (state == GAME_CTLPILL) {
 	handle_moves();
+	handle_animations();
 	render();
     } else if (state == GAME_LOAD) {
-	checks = [].concat([bgIm],pillIms,halfIms,virusIms);
+	var checks = [].concat([bgIm],pillIms,halfIms,[virusIms]);
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
 	    if (! checks[i].ready) {
@@ -523,6 +602,7 @@ var main = function () {
 	}
     } else if (state == GAME_FALLING) {
 	handle_fall();
+	handle_animations();
 	render();
     }
 };
