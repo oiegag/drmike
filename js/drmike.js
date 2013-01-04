@@ -75,6 +75,10 @@ pillIms = [ // yel, tea, mag
     new Sprite("images/pilltt.png"), // 11
     new Sprite("images/pillmt.png"), // 21
     new Sprite("images/pillmm.png")];// 22
+virusIms = [ // yel, tea, mag
+    new Sprite("images/virus_y_neutral.png"),
+    new Sprite("images/virus_t_neutral.png"),
+    new Sprite("images/virus_m_neutral.png")];
 
 // game objects
 var cfg = {
@@ -82,6 +86,7 @@ var cfg = {
     grav_fall_rate : 250, // how long between falls
     fast_move : 100, // how long between moves in fast mode
     fast_start : 500, // how long to press down before fast mode
+    vir_rep : 3
 };
 var state = GAME_LOAD;
 var last_update = Date.now();
@@ -138,40 +143,48 @@ board.seek_matches = function () {
     var matches = [];
     // check vertical matches
     for (var i = 0 ; i < board.width ; i++) {
-	var sofar = 1;
+	var sofar = 1, haspill = false;
 	for (var j = 1 ; j <= board.height ; j++) {
 	    // count as long as we're in the board, we're on colors, and they're the same
 	    if ((j < board.height)
 		&& ((board[i][j] != null) && (board[i][j-1] != null))
 		&& (board[i][j].color(i,j) == board[i][j-1].color(i,j-1))) {
 		sofar++;
+		if (!(board[i][j] instanceof Virus) || !(board[i][j-1] instanceof Virus)) {
+		    haspill = true;
+		}
 	    } else {
-		if (sofar >= 4) {
+		if (sofar >= 4 && haspill) {
 		    matches[matches.length] = [];
 		    for (var k = (j - sofar) ; k < j ; k++) {
 			matches[matches.length-1].push([i,k]);
 		    }
 		}
 		sofar = 1;
+		haspill = false;
 	    }
 	}
     }
     // check horizontal matches
     for (var j = 0 ; j < board.height ; j++) {
-	var sofar = 1;
+	var sofar = 1, haspill = false;
 	for (var i = 1 ; i <= board.width ; i++) {
 	    if ((i < board.width)
 		&& ((board[i][j] != null) && (board[i-1][j] != null))
 		&& (board[i][j].color(i,j) == board[i-1][j].color(i-1,j))) {
 		sofar++;
+		if (!(board[i][j] instanceof Virus) || !(board[i-1][j] instanceof Virus)) {
+		    haspill = true;
+		}
 	    } else {
-		if (sofar >= 4) {
+		if (sofar >= 4 && haspill) {
 		    matches[matches.length] = [];
 		    for (var k = (i - sofar) ; k < i ; k++) {
 			matches[matches.length-1].push([k,j]);
 		    }
 		}
 		sofar = 1;
+		haspill = false;
 	    }
 	}
     }
@@ -239,6 +252,54 @@ Occupant.prototype.place = function (newpos) {
 Occupant.prototype.fall = function () {
     return this.place([this.pos[0], this.pos[1]+1]);
 }
+Occupant.prototype.color = function (i,j) {
+    if ((i != this.pos[0]) || (j != this.pos[1])) {
+	return false;
+    } else {
+	return this.colors;
+    }
+}
+Occupant.prototype.adjust = function () {
+    return this;
+}
+Occupant.prototype.reproduce = function () {};
+
+var Virus = function(pos,color) {
+    this.pos = pos;
+    this.locations = [[0,0]];
+    this.colors = color;
+    this.sprite = virusIms[color];
+    this.cycle = cfg.vir_rep;
+    if (! this.place(pos)) {
+	return false;
+    } else {
+	return true;
+    }
+}
+Virus.prototype = new Occupant();
+Virus.prototype.fall = function () {};
+Virus.prototype.reproduce = function () {
+    this.cycle--;
+    if(! this.cycle) {
+	availables = [];
+	if (board.open(this.pos[0]+1,this.pos[1],this)) {
+	    availables.push([this.pos[0]+1,this.pos[1]]);
+	}
+	if (board.open(this.pos[0],this.pos[1]+1,this)) {
+	    availables.push([this.pos[0],this.pos[1]+1]);
+	}
+	if (board.open(this.pos[0]-1,this.pos[1],this)) {
+	    availables.push([this.pos[0]-1,this.pos[1]]);
+	}
+	if (board.open(this.pos[0],this.pos[1]-1,this)) {
+	    availables.push([this.pos[0],this.pos[1]-1]);
+	}
+	if (availables.length > 0) {
+	    all.push(new Virus(availables[randN(availables.length)],this.colors));
+	}
+	this.cycle = cfg.vir_rep;
+    }
+}
 
 var HalfPill = function(frompill,which_half) {
     this.pos = frompill.getpos(which_half);
@@ -252,16 +313,6 @@ var HalfPill = function(frompill,which_half) {
     this.sprite = halfIms[frompill.colors[which_half]];
 }
 HalfPill.prototype = new Occupant();
-HalfPill.prototype.color = function (i,j) {
-    if ((i != this.pos[0]) || (j != this.pos[1])) {
-	return false;
-    } else {
-	return this.colors;
-    }
-}
-HalfPill.prototype.adjust = function () {
-    return this;
-}
 
 var Pill = function(pilltype) {
     this.rotation = 0; // number of 90 degree rotations
@@ -321,7 +372,7 @@ Pill.prototype.color = function (i,j) { // what color is at location i,j
     }
 }
 pill = new Pill(randN(pillIms.length));
-all = [pill];
+all = [pill,new Virus([10,15],COL_MAG),new Virus([11,16],COL_TEA),new Virus([12,17],COL_YEL)];
 
 // Handle keyboard controls
 var keyEvent = {};
@@ -390,13 +441,18 @@ var handle_moves = function (modifier) {
 
     if ((now - last_update) > cfg.user_fall_rate) {
 	if(! pill.fall()) {
+	    for (i in all) {
+		all[i].reproduce();
+	    }
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
 		pill = new Pill(randN(pillIms.length));
-		all.push(pill);
-		state = GAME_CTLPILL;
-		last_update = last_update + cfg.user_fall_rate;
+		if (state != GAME_OVER) {
+		    all.push(pill);
+		    state = GAME_CTLPILL;
+		    last_update = last_update + cfg.user_fall_rate;
+		}
 	    } else {
 		state = GAME_FALLING;
 		last_update = last_update + cfg.grav_fall_rate;
@@ -439,8 +495,10 @@ var handle_fall = function () {
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
 		pill = new Pill(randN(pillIms.length));
-		all.push(pill);
-		state = GAME_CTLPILL;
+		if (state != GAME_OVER) {
+		    all.push(pill);
+		    state = GAME_CTLPILL;
+		}
 	    } else {
 		state = GAME_FALLING;
 	    }
@@ -453,7 +511,7 @@ var main = function () {
 	handle_moves();
 	render();
     } else if (state == GAME_LOAD) {
-	checks = [].concat([bgIm],pillIms,halfIms);
+	checks = [].concat([bgIm],pillIms,halfIms,virusIms);
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
 	    if (! checks[i].ready) {
