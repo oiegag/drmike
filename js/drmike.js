@@ -6,6 +6,7 @@ var GAME_CTLPILL = 0;
 var GAME_OVER = 1;
 var GAME_LOAD = 2;
 var GAME_FALLING = 3;
+var GAME_BIRTHANDDEATH = 4;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;
@@ -40,15 +41,15 @@ var VIR_ANI_BIRTH = 2;
 var VIR_ANI_BIRTHING = 3;
 // index -> pixel conversion
 var SQUARESZ = 20;
-var BOARDXOFF = 25;
-var BOARDYOFF = 30;
+var BOARDXOFF = 27;
+var BOARDYOFF = 41;
 // how often to call main (ms)
 var FRIENDLY = 25;
 
 // create the canvas
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
-canvas.width = 512;
+canvas.width = 640;
 canvas.height = 480;
 document.body.appendChild(canvas);
 
@@ -81,6 +82,7 @@ var pillIms = [ // yel, tea, mag
     new Sprite("images/pillmt.png"), // 21
     new Sprite("images/pillmm.png")];// 22
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
+var splodeIms = new Sprite("images/splode.png");
 
 // game objects
 var cfg = {
@@ -89,7 +91,8 @@ var cfg = {
     fast_move : 100, // how long between moves in fast mode
     fast_start : 500, // how long to press down before fast mode
     vir_rep : 3,
-    animate_wait_time : 300
+    animate_wait_time : 300,
+    splode_wait_time : 100
 };
 var state = GAME_LOAD;
 var last_update = Date.now();
@@ -99,7 +102,7 @@ var dir = DIR_NO;
 
 var board = {
     width:16,
-    height:21
+    height:20
 };
 for(var i=0 ; i < board.width ; i++) {
     board[i] = [];
@@ -126,8 +129,14 @@ board.kill_matches = function (matches) {
     for (var i = 0 ; i < matches.length ; i++) {
 	for (var j = 0 ; j < matches[i].length ; j++) {
 	    board[matches[i][j][0]][matches[i][j][1]] = null;
+	    addedSplode = new Splode([matches[i][j][0], matches[i][j][1]]);
+	    board[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
     }
+    return board.obtain_elements();
+}
+
+board.obtain_elements = function () {
     // now run through the board, return objects still on it. let them adjust themselves if
     // necessary (pills may have to return just a half-pill)
     var ordered = [];
@@ -270,6 +279,34 @@ Occupant.prototype.adjust = function () {
 }
 Occupant.prototype.reproduce = function () {};
 
+var Splode = function(pos) {
+    this.pos = pos;
+    this.locations = [[0,0]];
+    this.sprite = splodeIms;
+    this.spritepos = [0,0];
+    this.wait_time = cfg.splode_wait_time;
+    this.last_update = Date.now();
+    this.done = false;
+    if (! this.place(pos)) {
+	return false;
+    } else {
+	return true;
+    }
+}
+Splode.prototype = new Occupant();
+Splode.prototype.animate = function (now) {
+    if ((now - this.last_update) > this.wait_time) {
+	if (this.spritepos[1] < 2) {
+	    this.last_update = this.last_update + this.wait_time;
+	    this.spritepos[1]++;
+	} else {
+	    board[this.pos[0]][this.pos[1]] = null;
+	    this.done = true;
+	}
+    }
+}
+Splode.prototype.fall = function () {}
+
 var Virus = function(pos,color) {
     this.pos = pos;
     this.locations = [[0,0]];
@@ -278,9 +315,10 @@ var Virus = function(pos,color) {
     this.spritepos = [color, 10]; // empty square birth sequence
     this.cycle = cfg.vir_rep;
     this.last_update = Date.now();
-    this.wait_time = cfg.animate_wait_time;
+    this.wait_time = cfg.animate_wait_time/2; // faster during birth
     this.aniseq = 2; // two empties before birth
     this.ani_state = VIR_ANI_BIRTH;
+    this.done = false; // not born
     if (! this.place(pos)) {
 	return false;
     } else {
@@ -341,6 +379,8 @@ Virus.prototype.animate = function (now) {
 		    this.aniseq = randN(4) + 2;
 		    this.ani_state = VIR_ANI_BREATHE;
 		    this.spritepos[1] = 0;
+		    this.done = true;
+		    this.wait_time = cfg.animate_wait_time;
 		}
 	    }
 	} else if (this.ani_state == VIR_ANI_BIRTHING) {
@@ -390,11 +430,11 @@ Pill.prototype.adjust = function () {
     if ((board[this.pos[0]][this.pos[1]] == this)
 	&& (board[this.getpos(1)[0]][this.getpos(1)[1]] == this)) {
 	return this;
-    } else if(board[this.pos[0]][this.pos[1]] == null) {
+    } else if(board[this.pos[0]][this.pos[1]] instanceof Splode) {
 	half = new HalfPill(this,1);
 	board[this.getpos(1)[0]][this.getpos(1)[1]] = half;
 	return half;
-    } else if(board[this.getpos(1)[0]][this.getpos(1)[1]] == null) {
+    } else if(board[this.getpos(1)[0]][this.getpos(1)[1]] instanceof Splode) {
 	half = new HalfPill(this,0);
 	board[this.pos[0]][this.pos[1]] = half;
 	return half;
@@ -504,27 +544,28 @@ var handle_moves = function (modifier) {
 	    // grow into a 4-in-a-row that won't be checked until the next
 	    // pill comes. if you reproduce then kill, katie gets mad because
 	    // you're constantly having them "get away"
-	    matches1 = board.seek_matches();
-	    all = board.kill_matches(matches1);
+	    matches = board.seek_matches();
+	    all = board.kill_matches(matches);
 	    for (i in all) {
 		all[i].reproduce();
 	    }
-	    matches2 = board.seek_matches();
-	    all = board.kill_matches(matches2);
-	    if ((matches1.length + matches2.length) == 0) {
-		pill = new Pill(randN(pillIms.length));
-		if (state != GAME_OVER) {
-		    all.push(pill);
-		    state = GAME_CTLPILL;
-		    last_update = last_update + cfg.user_fall_rate;
+	    if (matches.length == 0) {
+		matches = board.seek_matches();
+		if (matches.length == 0) {
+		    pill = new Pill(randN(pillIms.length));
+		    if (state != GAME_OVER) {
+			all.push(pill);
+			state = GAME_CTLPILL;
+			last_update = last_update + cfg.user_fall_rate;
+		    }
+		} else {
+		    state = GAME_BIRTHANDDEATH;
 		}
 	    } else {
-		state = GAME_FALLING;
-		last_update = last_update + cfg.grav_fall_rate;
+		state = GAME_BIRTHANDDEATH;
 	    }
-	} else {
-	    last_update = last_update + cfg.user_fall_rate;
 	}
+	last_update = last_update + cfg.user_fall_rate;
     }
 };
 
@@ -566,7 +607,7 @@ var handle_fall = function () {
 		    state = GAME_CTLPILL;
 		}
 	    } else {
-		state = GAME_FALLING;
+		state = GAME_BIRTHANDDEATH;
 	    }
 	}
     }
@@ -574,13 +615,16 @@ var handle_fall = function () {
 
 // call all animatable objects with current time
 var handle_animations = function () {
-    var now = Date.now();
+    var now = Date.now(), done = true;
 
     for (var i in all) {
-	if (all[i] instanceof Virus) {
+	if (all[i] instanceof Virus || all[i] instanceof Splode) {
 	    all[i].animate(now);
+	    done = done && all[i].done;
+
 	}
     }
+    return done;
 }
 
 // The main game loop
@@ -590,7 +634,7 @@ var main = function () {
 	handle_animations();
 	render();
     } else if (state == GAME_LOAD) {
-	var checks = [].concat([bgIm],pillIms,halfIms,[virusIms]);
+	var checks = [].concat([bgIm],pillIms,halfIms,[virusIms,splodeIms]);
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
 	    if (! checks[i].ready) {
@@ -603,6 +647,21 @@ var main = function () {
     } else if (state == GAME_FALLING) {
 	handle_fall();
 	handle_animations();
+	render();
+    } else if (state == GAME_BIRTHANDDEATH) {
+	var done = handle_animations();
+	if (done) {
+	    last_update = Date.now(); // animations shouldn't make pills fall faster
+	    matches = board.seek_matches();
+	    all = board.kill_matches(matches);
+	    if (matches.length == 0) {
+		state = GAME_FALLING;
+	    } else {
+		state = GAME_BIRTHANDDEATH;
+	    }
+	} else {
+	    all = board.obtain_elements();
+	}
 	render();
     }
 };
