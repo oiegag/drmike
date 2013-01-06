@@ -46,19 +46,12 @@ var BOARDYOFF = 41;
 // how often to call main (ms)
 var FRIENDLY = 25;
 
-// create the canvas
-var canvas = document.createElement("canvas");
-var ctx = canvas.getContext("2d");
-canvas.width = 640;
-canvas.height = 480;
-document.body.appendChild(canvas);
-
 // utilities
 var randN = function (n) { // 0 ... n-1 random num
     return Math.floor(Math.random()*n);
 }
 
-// load images
+// image loader
 var Sprite = function(src) {
     this.ready = false;
     this.image = new Image();
@@ -68,56 +61,26 @@ var Sprite = function(src) {
     };
     this.image.src = src;
 }
-
-var bgIm = new Sprite("images/background.png");
-var halfIms = [ // yel, tea, mag
-    new Sprite("images/pilly.png"),
-    new Sprite("images/pillt.png"),
-    new Sprite("images/pillm.png")];
-var pillIms = [ // yel, tea, mag
-    new Sprite("images/pillyy.png"), // 00
-    new Sprite("images/pillym.png"), // 02
-    new Sprite("images/pillty.png"), // 10
-    new Sprite("images/pilltt.png"), // 11
-    new Sprite("images/pillmt.png"), // 21
-    new Sprite("images/pillmm.png")];// 22
-var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
-var splodeIms = new Sprite("images/splode.png");
-
-// game objects
-var cfg = {
-    user_fall_rate : 500, // how long between falls
-    grav_fall_rate : 250, // how long between falls
-    fast_move : 100, // how long between moves in fast mode
-    fast_start : 500, // how long to press down before fast mode
-    vir_rep : 3,
-    animate_wait_time : 300,
-    splode_wait_time : 100
-};
-var state = GAME_LOAD;
-var last_update = Date.now();
-var pressed = false;
-var points = 0;
-var dir = DIR_NO;
-
-var board = {
-    width:16,
-    height:20
-};
-for(var i=0 ; i < board.width ; i++) {
-    board[i] = [];
-    for(j=0 ; j < board.height ; j++) {
-	board[i][j] = null;
+// the board and its related stuff
+var Board = function () {
+    this.width = 16;
+    this.height = 20;
+    for(var i=0 ; i < this.width ; i++) {
+	this[i] = [];
+	for(j=0 ; j < this.height ; j++) {
+	    this[i][j] = null;
+	}
     }
 }
-board.show = function () {
-    for(var i = 0 ; i < board.height ; i++) {
+
+Board.prototype.show = function () {
+    for(var i = 0 ; i < this.height ; i++) {
 	var line = '';
-	for(var j = 0 ; j < board.width ; j++) {
-	    if(board[j][i] == null) {
+	for(var j = 0 ; j < this.width ; j++) {
+	    if(this[j][i] == null) {
 		line = line + '.';
 	    } else {
-		col = board[j][i].color(j,i);
+		col = this[j][i].color(j,i);
 		var cols = ['y', 't', 'm'];
 		line = line + cols[col];
 	    }
@@ -125,25 +88,25 @@ board.show = function () {
 	console.log(line);
     }
 }
-board.kill_matches = function (matches) {
+Board.prototype.kill_matches = function (matches) {
     for (var i = 0 ; i < matches.length ; i++) {
 	for (var j = 0 ; j < matches[i].length ; j++) {
-	    board[matches[i][j][0]][matches[i][j][1]] = null;
+	    this[matches[i][j][0]][matches[i][j][1]] = null;
 	    addedSplode = new Splode([matches[i][j][0], matches[i][j][1]]);
-	    board[matches[i][j][0]][matches[i][j][1]] = addedSplode;
+	    this[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
     }
-    return board.obtain_elements();
+    return this.obtain_elements();
 }
 
-board.obtain_elements = function () {
+Board.prototype.obtain_elements = function () {
     // now run through the board, return objects still on it. let them adjust themselves if
     // necessary (pills may have to return just a half-pill)
     var ordered = [];
-    for (var i = 0 ; i < board.width ; i++) {
-	for (var j = 0 ; j < board.height ; j++) {
-	    if (board[i][j] != null) {
-		var newbie = board[i][j].adjust();
+    for (var i = 0 ; i < this.width ; i++) {
+	for (var j = 0 ; j < this.height ; j++) {
+	    if (this[i][j] != null) {
+		var newbie = this[i][j].adjust();
 		ordered[ordered.length] = newbie;
 	    }
 	}
@@ -151,18 +114,18 @@ board.obtain_elements = function () {
     return ordered.filter(function(s, i, a){ return i == a.lastIndexOf(s); });
 }
 
-board.seek_matches = function () {
+Board.prototype.seek_matches = function () {
     var matches = [];
     // check vertical matches
-    for (var i = 0 ; i < board.width ; i++) {
+    for (var i = 0 ; i < this.width ; i++) {
 	var sofar = 1, haspill = false;
-	for (var j = 1 ; j <= board.height ; j++) {
+	for (var j = 1 ; j <= this.height ; j++) {
 	    // count as long as we're in the board, we're on colors, and they're the same
-	    if ((j < board.height)
-		&& ((board[i][j] != null) && (board[i][j-1] != null))
-		&& (board[i][j].color(i,j) == board[i][j-1].color(i,j-1))) {
+	    if ((j < this.height)
+		&& ((this[i][j] != null) && (this[i][j-1] != null))
+		&& (this[i][j].color(i,j) == this[i][j-1].color(i,j-1))) {
 		sofar++;
-		if (!(board[i][j] instanceof Virus) || !(board[i][j-1] instanceof Virus)) {
+		if (!(this[i][j] instanceof Virus) || !(this[i][j-1] instanceof Virus)) {
 		    haspill = true;
 		}
 	    } else {
@@ -178,14 +141,14 @@ board.seek_matches = function () {
 	}
     }
     // check horizontal matches
-    for (var j = 0 ; j < board.height ; j++) {
+    for (var j = 0 ; j < this.height ; j++) {
 	var sofar = 1, haspill = false;
-	for (var i = 1 ; i <= board.width ; i++) {
-	    if ((i < board.width)
-		&& ((board[i][j] != null) && (board[i-1][j] != null))
-		&& (board[i][j].color(i,j) == board[i-1][j].color(i-1,j))) {
+	for (var i = 1 ; i <= this.width ; i++) {
+	    if ((i < this.width)
+		&& ((this[i][j] != null) && (this[i-1][j] != null))
+		&& (this[i][j].color(i,j) == this[i-1][j].color(i-1,j))) {
 		sofar++;
-		if (!(board[i][j] instanceof Virus) || !(board[i-1][j] instanceof Virus)) {
+		if (!(this[i][j] instanceof Virus) || !(this[i-1][j] instanceof Virus)) {
 		    haspill = true;
 		}
 	    } else {
@@ -203,11 +166,11 @@ board.seek_matches = function () {
     return matches;
 }
 
-board.open = function (indi,indj,obj) { // check if obj can be in this location
-    if ((indi < 0) || (indj < 0) || (indi >= board.width) || (indj >= board.height)) {
+Board.prototype.open = function (indi,indj,obj) { // check if obj can be in this location
+    if ((indi < 0) || (indj < 0) || (indi >= this.width) || (indj >= this.height)) {
 	return false;
     }
-    if ((board[indi][indj] != null) && (board[indi][indj] != obj)) {
+    if ((this[indi][indj] != null) && (this[indi][indj] != obj)) {
 	return false;
     }
     return true;
@@ -470,41 +433,45 @@ Pill.prototype.color = function (i,j) { // what color is at location i,j
 	return false;
     }
 }
-pill = new Pill(randN(pillIms.length));
-all = [pill,new Virus([10,15],COL_MAG),new Virus([11,16],COL_TEA),new Virus([12,17],COL_YEL)];
 
-// Handle keyboard controls
-var keyEvent = {};
+var Input = function () {
+    this.keyEvent = {};
+    this.pressed = false;
+};
 
-addEventListener("keydown", function (e) {
-    keyEvent[e.keyCode] = true;
-}, false);
-
-addEventListener("keyup", function (e) {
-    delete keyEvent[e.keyCode];
-}, false);
-
-// update game objects
-var handle_moves = function (modifier) {
+// main game functions.. the stage constructor sets up the global
+// game state stuff.. guess that's sort of ugly, but oh well
+var Stage = function (layout) {
+    board = new Board();
+    pill = new Pill(randN(pillIms.length));
+    all = [pill];
+    for (i in layout) {
+	all.push(new Virus(layout[i][0], layout[i][1]));
+    }
+}
+Stage.prototype.handle_moves = function (modifier) {
     var now = Date.now(), dir = null, rot = null;
 
     // convert the keys to more like a d-pad, only one direction at a time
-    if ((KEY_LT in keyEvent) && !(KEY_RT in keyEvent) && !(KEY_DN in keyEvent)) {
+    if ((KEY_LT in input.keyEvent) && !(KEY_RT in input.keyEvent)
+	&& !(KEY_DN in input.keyEvent)) {
 	dir = DIR_LT;
-    } else if (!(KEY_LT in keyEvent) && (KEY_RT in keyEvent) && !(KEY_DN in keyEvent)) {
+    } else if (!(KEY_LT in input.keyEvent) && (KEY_RT in input.keyEvent)
+	       && !(KEY_DN in input.keyEvent)) {
 	dir = DIR_RT;
-    } else if (!(KEY_LT in keyEvent) && !(KEY_RT in keyEvent) && (KEY_DN in keyEvent)) {
+    } else if (!(KEY_LT in input.keyEvent) && !(KEY_RT in input.keyEvent)
+	       && (KEY_DN in input.keyEvent)) {
 	dir = DIR_DN;
     } else {
 	dir = DIR_NO;
     }
     // convert rotations to just one
-    if ((KEY_D in keyEvent) && !(KEY_F in keyEvent)) {
+    if ((KEY_D in input.keyEvent) && !(KEY_F in input.keyEvent)) {
 	rot = ROT_LEFT;
-	delete keyEvent[KEY_D];
-    } else if (!(KEY_D in keyEvent) && (KEY_F in keyEvent)) {
+	delete input.keyEvent[KEY_D];
+    } else if (!(KEY_D in input.keyEvent) && (KEY_F in input.keyEvent)) {
 	rot = ROT_RIGHT;
-	delete keyEvent[KEY_F];
+	delete input.keyEvent[KEY_F];
     } else {
 	rot = ROT_NONE;
     }
@@ -514,28 +481,28 @@ var handle_moves = function (modifier) {
     }
     
     if (dir != DIR_NO) {
-	if ((pressed == false) || (pressed.dir != dir)) {
+	if ((input.pressed == false) || (input.pressed.dir != dir)) {
 	    pill.move(DIR_MOVES[dir]);
 	    if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
 		last_update = now;
 	    }
-	    pressed = {
+	    input.pressed = {
 		dir : dir,
 		start : now,
 		wait : cfg.fast_start
 	    }
 	} else { // same thing as last time pressed
-	    if ( (now - pressed.start) > pressed.wait) {
+	    if ( (now - input.pressed.start) > input.pressed.wait) {
 		pill.move(DIR_MOVES[dir]);
-		pressed = {
+		input.pressed = {
 		    dir : dir,
-		    start : pressed.start + pressed.wait,
+		    start : input.pressed.start + input.pressed.wait,
 		    wait : cfg.fast_move
 		}
 	    }
 	}
     } else {
-	pressed = false;
+	input.pressed = false;
     }
 
     if ((now - last_update) > cfg.user_fall_rate) {
@@ -570,8 +537,8 @@ var handle_moves = function (modifier) {
 };
 
 
-// Draw everything
-var render = function () {
+// draw everything
+Stage.prototype.render = function () {
     ctx.drawImage(bgIm.image, 0, 0);
     
     for(var i = 0 ; i < all.length ; i++) {
@@ -587,7 +554,7 @@ var render = function () {
 };
 
 // make pills fall
-var handle_fall = function () {
+Stage.prototype.handle_fall = function () {
     var now = Date.now();
 
     if ((now - last_update) > cfg.grav_fall_rate) {
@@ -614,7 +581,7 @@ var handle_fall = function () {
 }
 
 // call all animatable objects with current time
-var handle_animations = function () {
+Stage.prototype.handle_animations = function () {
     var now = Date.now(), done = true;
 
     for (var i in all) {
@@ -630,9 +597,9 @@ var handle_animations = function () {
 // The main game loop
 var main = function () {
     if (state == GAME_CTLPILL) {
-	handle_moves();
-	handle_animations();
-	render();
+	stage.handle_moves();
+	stage.handle_animations();
+	stage.render();
     } else if (state == GAME_LOAD) {
 	var checks = [].concat([bgIm],pillIms,halfIms,[virusIms,splodeIms]);
 	var ready = true;
@@ -645,11 +612,11 @@ var main = function () {
 	    state = GAME_CTLPILL;
 	}
     } else if (state == GAME_FALLING) {
-	handle_fall();
-	handle_animations();
-	render();
+	stage.handle_fall();
+	stage.handle_animations();
+	stage.render();
     } else if (state == GAME_BIRTHANDDEATH) {
-	var done = handle_animations();
+	var done = stage.handle_animations();
 	if (done) {
 	    last_update = Date.now(); // animations shouldn't make pills fall faster
 	    matches = board.seek_matches();
@@ -662,9 +629,57 @@ var main = function () {
 	} else {
 	    all = board.obtain_elements();
 	}
-	render();
+	stage.render();
     }
 };
 
-// Let's play this game!
+// create the canvas
+var canvas = document.createElement("canvas");
+var ctx = canvas.getContext("2d");
+canvas.width = 640;
+canvas.height = 480;
+document.body.appendChild(canvas);
+
+// load sprites
+var bgIm = new Sprite("images/background.png");
+var halfIms = [ // yel, tea, mag
+    new Sprite("images/pilly.png"),
+    new Sprite("images/pillt.png"),
+    new Sprite("images/pillm.png")];
+var pillIms = [ // yel, tea, mag
+    new Sprite("images/pillyy.png"), // 00
+    new Sprite("images/pillym.png"), // 02
+    new Sprite("images/pillty.png"), // 10
+    new Sprite("images/pilltt.png"), // 11
+    new Sprite("images/pillmt.png"), // 21
+    new Sprite("images/pillmm.png")];// 22
+var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
+var splodeIms = new Sprite("images/splode.png");
+
+// game objects
+var cfg = {
+    user_fall_rate : 500, // how long between falls
+    grav_fall_rate : 250, // how long between falls
+    fast_move : 100, // how long between moves in fast mode
+    fast_start : 500, // how long to press down before fast mode
+    vir_rep : 3,
+    animate_wait_time : 300,
+    splode_wait_time : 100
+};
+var state = GAME_LOAD;
+var last_update = Date.now();
+var points = 0;
+
+stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
+// handle keyboard controls
+input = new Input();
+addEventListener("keydown", function (e) {
+    input.keyEvent[e.keyCode] = true;
+}, false);
+
+addEventListener("keyup", function (e) {
+    delete input.keyEvent[e.keyCode];
+}, false);
+
+// start main loop
 setInterval(main, FRIENDLY); // execute every friendly ms
