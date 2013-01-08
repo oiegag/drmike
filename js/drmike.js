@@ -51,7 +51,7 @@ var randN = function (n) { // 0 ... n-1 random num
     return Math.floor(Math.random()*n);
 }
 
-// image loader
+// image loader and renderer for things not on the board
 var Sprite = function(src) {
     this.ready = false;
     this.image = new Image();
@@ -60,7 +60,24 @@ var Sprite = function(src) {
 	this.parent.ready = true;
     };
     this.image.src = src;
+};
+
+// RHS stuff
+var AnimSprite = function (filenm, pos, layout) {
+    this.sprite = new Sprite(filenm);
+    this.pos = [pos[0]*canvas.width, pos[1]*canvas.height];
+    this.layout = layout;
+    this.spritepos = [0, 0];
 }
+AnimSprite.prototype.render = function () {
+    var sw = this.sprite.image.width/this.layout[0];
+    var sh = this.sprite.image.height/this.layout[1];
+    ctx.drawImage(this.sprite.image, this.spritepos[0]*sw, this.spritepos[1]*sh, sw, sh,
+		  this.pos[0], this.pos[1], sw, sh);
+};
+AnimSprite.prototype.animate = function () {};
+
+
 // the board and its related stuff
 var Board = function () {
     this.width = 16;
@@ -443,8 +460,8 @@ var Input = function () {
 // game state stuff.. guess that's sort of ugly, but oh well
 var Stage = function (layout) {
     board = new Board();
-    pill = new Pill(randN(pillIms.length));
-    all = [pill];
+    this.pill = new Pill(randN(pillIms.length));
+    all = [this.pill];
     for (i in layout) {
 	all.push(new Virus(layout[i][0], layout[i][1]));
     }
@@ -477,12 +494,12 @@ Stage.prototype.handle_moves = function (modifier) {
     }
 
     if (rot != ROT_NONE) {
-	pill.rotate(rot);
+	stage.pill.rotate(rot);
     }
     
     if (dir != DIR_NO) {
 	if ((input.pressed == false) || (input.pressed.dir != dir)) {
-	    pill.move(DIR_MOVES[dir]);
+	    stage.pill.move(DIR_MOVES[dir]);
 	    if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
 		last_update = now;
 	    }
@@ -493,7 +510,7 @@ Stage.prototype.handle_moves = function (modifier) {
 	    }
 	} else { // same thing as last time pressed
 	    if ( (now - input.pressed.start) > input.pressed.wait) {
-		pill.move(DIR_MOVES[dir]);
+		stage.pill.move(DIR_MOVES[dir]);
 		input.pressed = {
 		    dir : dir,
 		    start : input.pressed.start + input.pressed.wait,
@@ -506,7 +523,7 @@ Stage.prototype.handle_moves = function (modifier) {
     }
 
     if ((now - last_update) > cfg.user_fall_rate) {
-	if(! pill.fall()) {
+	if(! stage.pill.fall()) {
 	    // so if you kill matches first, then reproduce it's possible to
 	    // grow into a 4-in-a-row that won't be checked until the next
 	    // pill comes. if you reproduce then kill, katie gets mad because
@@ -519,9 +536,10 @@ Stage.prototype.handle_moves = function (modifier) {
 	    if (matches.length == 0) {
 		matches = board.seek_matches();
 		if (matches.length == 0) {
-		    pill = new Pill(randN(pillIms.length));
+		    anims[0].insert(); // animate dr mario putting it in
+		    stage.pill = new Pill(randN(pillIms.length));
 		    if (state != GAME_OVER) {
-			all.push(pill);
+			all.push(stage.pill);
 			state = GAME_CTLPILL;
 			last_update = last_update + cfg.user_fall_rate;
 		    }
@@ -539,8 +557,11 @@ Stage.prototype.handle_moves = function (modifier) {
 
 // draw everything
 Stage.prototype.render = function () {
-    ctx.drawImage(bgIm.image, 0, 0);
-    
+    ctx.drawImage(bgIms[0].image, 0, 0);
+    for (var i = 0 ; i < anims.length ; i++) {
+	anims[i].render();
+    }
+
     for(var i = 0 ; i < all.length ; i++) {
 	all[i].render();
     }
@@ -568,9 +589,10 @@ Stage.prototype.handle_fall = function () {
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
-		pill = new Pill(randN(pillIms.length));
+		anim[0].insert();
+		stage.pill = new Pill(randN(pillIms.length));
 		if (state != GAME_OVER) {
-		    all.push(pill);
+		    all.push(stage.pill);
 		    state = GAME_CTLPILL;
 		}
 	    } else {
@@ -593,15 +615,23 @@ Stage.prototype.handle_animations = function () {
     }
     return done;
 }
+Stage.prototype.handle_rhs = function () {
+    var now = Date.now();
+
+    for (i in anims) {
+	anims[i].animate(now);
+    }
+}
 
 // The main game loop
 var main = function () {
     if (state == GAME_CTLPILL) {
 	stage.handle_moves();
 	stage.handle_animations();
+	stage.handle_rhs();
 	stage.render();
     } else if (state == GAME_LOAD) {
-	var checks = [].concat([bgIm],pillIms,halfIms,[virusIms,splodeIms]);
+	var checks = [].concat(bgIms,pillIms,halfIms,[virusIms,splodeIms]);
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
 	    if (! checks[i].ready) {
@@ -614,9 +644,11 @@ var main = function () {
     } else if (state == GAME_FALLING) {
 	stage.handle_fall();
 	stage.handle_animations();
+	stage.handle_rhs();
 	stage.render();
     } else if (state == GAME_BIRTHANDDEATH) {
 	var done = stage.handle_animations();
+	stage.handle_rhs();
 	if (done) {
 	    last_update = Date.now(); // animations shouldn't make pills fall faster
 	    matches = board.seek_matches();
@@ -641,7 +673,7 @@ canvas.height = 480;
 document.body.appendChild(canvas);
 
 // load sprites
-var bgIm = new Sprite("images/background.png");
+var bgIms = [new Sprite("images/background.png")];
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
     new Sprite("images/pillt.png"),
@@ -655,6 +687,42 @@ var pillIms = [ // yel, tea, mag
     new Sprite("images/pillmm.png")];// 22
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
+var anims = [new AnimSprite("images/doctor.png",[0.722, 0.396],[1, 9]),
+	     new AnimSprite("images/patient.png",[0.611, 0.6], [1, 2]),
+	     new AnimSprite("images/radio.png",[0.856, 0.235],[1,4])];
+// add animation logic for one-off animations
+for (i in anims) {
+    anims[i].last_update = Date.now();
+    anims[i].state = 0;
+}
+anims[0].animate = function (now) { // doctor
+    if ((now - this.last_update) > cfg.animate_wait_time*2) {
+	if (this.state == 0) {
+	    this.spritepos[1] = (this.spritepos[1] + 1) % 8;
+	    this.last_update += cfg.animate_wait_time*2;
+	} else if (this.state == 1) {
+	    this.spritepos[1] = 0;
+	    this.state = 0;
+	}
+    }
+}
+anims[0].insert = function () { // add a pill
+    this.state = 1;
+    this.spritepos[1] = 8;
+}
+anims[1].animate = function (now) { // patient
+    var states = Math.round(10000/cfg.animate_wait_time);
+    if ((now - this.last_update) > cfg.animate_wait_time) {
+	this.state = (this.state + 1) % states;
+	if (this.state == states-2) {
+	    this.spritepos[1] = (this.spritepos[1] + 1) % 2;
+	} else if (this.state == states-1) {
+	    this.spritepos[1] = (this.spritepos[1] + 1) % 2;
+	}
+	this.last_update += cfg.animate_wait_time;
+    }
+}
+    
 
 // game objects
 var cfg = {
@@ -670,9 +738,9 @@ var state = GAME_LOAD;
 var last_update = Date.now();
 var points = 0;
 
-stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
+var stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
 // handle keyboard controls
-input = new Input();
+var input = new Input();
 addEventListener("keydown", function (e) {
     input.keyEvent[e.keyCode] = true;
 }, false);
