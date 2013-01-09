@@ -702,6 +702,9 @@ var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
 canvas.width = 640;
 canvas.height = 480;
+ctx.imageSmoothingEnabled = false;
+ctx.webkitImageSmoothingEnabled = false;
+ctx.mozImageSmoothingEnabled = false;
 document.body.appendChild(canvas);
 
 // load sprites
@@ -719,6 +722,7 @@ var pillIms = [ // yel, tea, mag
     new Sprite("images/pillmm.png")];// 22
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
+
 
 // game objects
 var cfg = {
@@ -743,15 +747,17 @@ var anims = [new AnimSprite("images/doctor.png",[0.722, 0.396],[1, 9],
 	     new AnimSprite(virusIms,[0.672, 0.245],[3,13],[0,1,2,3,4],1),
 	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3,4],2),
 ];
+var fingSprite = new AnimSprite("images/fingers.png",[0.68, 0.38],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims[0].insert = function (ind) { // add a pill
     this.spritepos[1] = 8;
     this.last_update = Date.now();
     anims.push(new AnimSprite(pillIms[ind],[0.703, 0.34],[1, 1], [0],0,2));
+    anims.push(fingSprite);
     this.animate = function (now) {
 	if ((now - this.last_update) > this.wait_time) {
 	    this.last_update += this.wait_time;
-	    anims.pop();
+	    anims.pop();anims.pop();
 	    this.spritepos[1] = 0;
 	    delete this.animate;
 	}
@@ -771,3 +777,4 @@ addEventListener("keyup", function (e) {
 
 // start main loop
 setInterval(main, FRIENDLY); // execute every friendly ms
+
