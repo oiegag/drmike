@@ -45,6 +45,10 @@ var BOARDXOFF = 27;
 var BOARDYOFF = 41;
 // how often to call main (ms)
 var FRIENDLY = 25;
+// animations
+var ANIM_LASTPILL = 2;
+var ANIM_DOCTOR = 3;
+var ANIM_VIRUS = 8;
 
 // utilities
 var randN = function (n) { // 0 ... n-1 random num
@@ -71,6 +75,8 @@ var Sprite = function(src) {
 
 // RHS stuff
 var AnimSprite = function (filenmOrSprite, pos, layout, seq, begin, scale) {
+    // sprite based on it, where it goes, sprite layout, animation sequence, where to start, 
+    // x coordinate of animation sequence, scaling parameter
     if (filenmOrSprite instanceof Sprite) {
 	this.sprite = filenmOrSprite;
     } else {
@@ -426,12 +432,14 @@ var Pill = function(pilltype) {
     this.rotation = 0; // number of 90 degree rotations
     this.locations = [[0,0],ROT_SND[this.rotation]]; // offsetted locations in board occupied by this sprite
     this.colors = COL_PILLS[pilltype];
+    this.pilltype = pilltype;
     this.pos = [];
     if (! this.place([board.width/2 , 0])) {
 	console.log('end of game');
 	state = GAME_OVER;
     }
-    this.sprite = pillIms[pilltype];
+    this.sprite = pillIms;
+    this.spritepos = [0,pilltype*2];
 };
 Pill.prototype = new Occupant();
 Pill.prototype.size = [SQUARESZ, SQUARESZ*2];
@@ -490,11 +498,19 @@ var Input = function () {
 // game state stuff.. guess that's sort of ugly, but oh well
 var Stage = function (layout) {
     board = new Board();
-    this.pill = new Pill(randN(pillIms.length));
+    this.pill = this.new_pill();
     all = [this.pill];
     for (i in layout) {
 	all.push(new Virus(layout[i][0], layout[i][1]));
     }
+}
+Stage.prototype.new_pill = function () {
+    ind = anims[2].seq[0];
+    anims[2].seq[0] = anims[1].seq[0];
+    anims[1].seq[0] = anims[0].seq[0];
+    anims[0].seq[0] = randN(COL_PILLS.length);
+    anims[ANIM_DOCTOR].insert(ind); // animate dr mario putting it in
+    return new Pill(ind);
 }
 Stage.prototype.handle_moves = function (modifier) {
     var now = Date.now(), dir = null, rot = null;
@@ -566,9 +582,8 @@ Stage.prototype.handle_moves = function (modifier) {
 	    if (matches.length == 0) {
 		matches = board.seek_matches();
 		if (matches.length == 0) {
-		    ind = randN(pillIms.length);
-		    anims[0].insert(ind); // animate dr mario putting it in
-		    stage.pill = new Pill(ind);
+		    stage.pill = stage.new_pill();
+		    stage.handle_rhs();
 		    if (state != GAME_OVER) {
 			all.push(stage.pill);
 			state = GAME_CTLPILL;
@@ -620,9 +635,8 @@ Stage.prototype.handle_fall = function () {
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
-		ind = randN(pillIms.length);
-		anims[0].insert(ind);
-		stage.pill = new Pill(ind);
+		stage.pill = stage.new_pill();
+		stage.handle_rhs(); // update the new pills
 		if (state != GAME_OVER) {
 		    all.push(stage.pill);
 		    state = GAME_CTLPILL;
@@ -649,8 +663,9 @@ Stage.prototype.handle_animations = function () {
 }
 Stage.prototype.handle_rhs = function () {
     var now = Date.now();
-
-    for (i in anims) {
+    
+    // crazy kludge alert: animate can actually change the length of anims.
+    for (var i=0 ; i < anims.length ; i++) {
 	anims[i].animate(now);
     }
 }
@@ -713,13 +728,7 @@ var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
     new Sprite("images/pillt.png"),
     new Sprite("images/pillm.png")];
-var pillIms = [ // yel, tea, mag
-    new Sprite("images/pillyy.png"), // 00
-    new Sprite("images/pillym.png"), // 02
-    new Sprite("images/pillty.png"), // 10
-    new Sprite("images/pilltt.png"), // 11
-    new Sprite("images/pillmt.png"), // 21
-    new Sprite("images/pillmm.png")];// 22
+var pillIms = new Sprite("images/pill.png");
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
 
@@ -738,26 +747,34 @@ var state = GAME_LOAD;
 var last_update = Date.now();
 var points = 0;
 
-var anims = [new AnimSprite("images/doctor.png",[0.722, 0.396],[1, 9],
-			    [0,1,2,3,4,5,6,7]),
+var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
+			    [randN(COL_PILLS.length)]),
+	     new AnimSprite(pillIms, [0.715, 0.535], [1, COL_PILLS.length],
+			    [randN(COL_PILLS.length)]),
+	     new AnimSprite(pillIms, [0.752, 0.535], [1, COL_PILLS.length],
+			    [randN(COL_PILLS.length)]),
+	     new AnimSprite("images/doctor.png",[0.722, 0.396],[1, 5],
+			    [0,1,0,2,0,1,3,2]),
 	     new AnimSprite("images/patient.png",[0.611, 0.6], [1, 2],
 			   repeatN(0,30).concat([1,0,1])),
 	     new AnimSprite("images/radio.png",[0.856, 0.235],[1,4],[0]),
-	     new AnimSprite(virusIms,[0.672, 0.2],[3,13],[0,1,2,3,4]),
-	     new AnimSprite(virusIms,[0.672, 0.245],[3,13],[0,1,2,3,4],1),
-	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3,4],2),
+	     new AnimSprite(virusIms,[0.672, 0.2],[3,13],[0,1,2,3]),
+	     new AnimSprite(virusIms,[0.672, 0.245],[3,13],[0,1,2,3],1),
+	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3],2),
 ];
-var fingSprite = new AnimSprite("images/fingers.png",[0.68, 0.38],[1, 1], [0],0,1); // only animation that's temporary but not loaded
+var fingSprite = new AnimSprite("images/fingers.png",[0.72 , 0.40],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
-anims[0].insert = function (ind) { // add a pill
-    this.spritepos[1] = 8;
+anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
+    this.spritepos[1] = 4;
     this.last_update = Date.now();
-    anims.push(new AnimSprite(pillIms[ind],[0.703, 0.34],[1, 1], [0],0,2));
+    anims.push(new AnimSprite(pillIms,[0.735, 0.39],[1, COL_PILLS.length], [ind]));
     anims.push(fingSprite);
     this.animate = function (now) {
-	if ((now - this.last_update) > this.wait_time) {
+	if ((now - this.last_update) > this.wait_time*2) {
 	    this.last_update += this.wait_time;
-	    anims.pop();anims.pop();
+	    // note that it's technically possible to end up getting a bunch of inserts before this function gets called
+	    // so you may need to drop multiple copies of fingers/pills here.
+	    anims = anims.slice(0,ANIM_VIRUS+1);
 	    this.spritepos[1] = 0;
 	    delete this.animate;
 	}
