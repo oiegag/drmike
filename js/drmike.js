@@ -7,6 +7,7 @@ var GAME_OVER = 1;
 var GAME_LOAD = 2;
 var GAME_FALLING = 3;
 var GAME_BIRTHANDDEATH = 4;
+var GAME_PAUSE = 5;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;
@@ -14,6 +15,8 @@ var KEY_RT = 39;
 var KEY_LT = 37;
 var KEY_D = 68;
 var KEY_F = 70;
+var KEY_SP = 32;
+var KEY_O = 79;
 // d-pad stats
 var DIR_NO = 0;
 var DIR_LT = 1;
@@ -44,7 +47,7 @@ var SQUARESZ = 20;
 var BOARDXOFF = 27;
 var BOARDYOFF = 41;
 // how often to call main (ms)
-var FRIENDLY = 25;
+var FRIENDLY = 15;
 // animations
 var ANIM_LASTPILL = 2;
 var ANIM_DOCTOR = 3;
@@ -61,6 +64,20 @@ var repeatN = function (m,n) { // m n times
     }
     return out;
 }
+var draw_text = function (text,where,fill,font) {
+    // Score
+    if (fill == undefined) {
+	fill = "rgb(250, 250, 250)";
+    }
+    if (font == undefined) {
+	font = "24px Helvetica";
+    }
+    ctx.fillStyle = fill;
+    ctx.font = font;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(text, where[0], where[1]);
+};
 
 // image loader and renderer for things not on the board
 var Sprite = function(src) {
@@ -118,6 +135,7 @@ AnimSprite.prototype.animate = function (now) {
 var Board = function () {
     this.width = 16;
     this.height = 20;
+    this.viruses = [0,0,0];
     for(var i=0 ; i < this.width ; i++) {
 	this[i] = [];
 	for(j=0 ; j < this.height ; j++) {
@@ -149,6 +167,10 @@ Board.prototype.kill_matches = function (matches) {
 	    this[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
     }
+    if (matches.length > 0) {
+	game.combo += matches.length;
+	game.points += 1000*Math.pow(2,game.combo-1);
+    }
     return this.obtain_elements();
 }
 
@@ -156,11 +178,15 @@ Board.prototype.obtain_elements = function () {
     // now run through the board, return objects still on it. let them adjust themselves if
     // necessary (pills may have to return just a half-pill)
     var ordered = [];
+    this.viruses = [0,0,0];
     for (var i = 0 ; i < this.width ; i++) {
 	for (var j = 0 ; j < this.height ; j++) {
 	    if (this[i][j] != null) {
 		var newbie = this[i][j].adjust();
 		ordered[ordered.length] = newbie;
+		if (this[i][j] instanceof Virus) {
+		    this.viruses[this[i][j].color(i,j)]++;
+		}
 	    }
 	}
     }
@@ -229,7 +255,7 @@ Board.prototype.open = function (indi,indj,obj) { // check if obj can be in this
     return true;
 }
 
-// occupants of the board are virii or pills
+// occupants of the board are viruses or pills
 var Occupant = function () {};
 // Occupants will need: sprite, pos, locations, rotation
 Occupant.prototype.getpos = function (i) {
@@ -377,14 +403,18 @@ Virus.prototype.animate = function (now) {
 	    }
 	    if (this.aniseq == 0) {
 		this.ani_state = VIR_ANI_FIDGET;
+		this.aniseq = 1;
 		this.spritepos[1] = 4
 	    }
 	} else if(this.ani_state == VIR_ANI_FIDGET) {
-	    this.spritepos[1]++;
-	    if (this.spritepos[1] == 7) {
+	    var fidget_order = [4,5,6,5];
+	    this.spritepos[1] = fidget_order[this.aniseq];
+	    if (this.aniseq == fidget_order.length) {
 		this.spritepos[1] = 0;
 		this.aniseq = randN(4)+2;
 		this.ani_state = VIR_ANI_BREATHE;
+	    } else {
+		this.aniseq++;
 	    }
 	} else if(this.ani_state == VIR_ANI_BIRTH) {
 	    if (this.aniseq > 0) {
@@ -436,7 +466,7 @@ var Pill = function(pilltype) {
     this.pos = [];
     if (! this.place([board.width/2 , 0])) {
 	console.log('end of game');
-	state = GAME_OVER;
+	game.state = GAME_OVER;
     }
     this.sprite = pillIms;
     this.spritepos = [0,pilltype*2];
@@ -503,6 +533,7 @@ var Stage = function (layout) {
     for (i in layout) {
 	all.push(new Virus(layout[i][0], layout[i][1]));
     }
+    all = board.obtain_elements(); // kinda redundant, but counts viruses too
 }
 Stage.prototype.new_pill = function () {
     ind = anims[2].seq[0];
@@ -547,7 +578,7 @@ Stage.prototype.handle_moves = function (modifier) {
 	if ((input.pressed == false) || (input.pressed.dir != dir)) {
 	    stage.pill.move(DIR_MOVES[dir]);
 	    if (dir == DIR_DN) { // don't do two falls in a row, it looks weird
-		last_update = now;
+		game.last_update = now;
 	    }
 	    input.pressed = {
 		dir : dir,
@@ -568,7 +599,7 @@ Stage.prototype.handle_moves = function (modifier) {
 	input.pressed = false;
     }
 
-    if ((now - last_update) > cfg.user_fall_rate) {
+    if ((now - game.last_update) > cfg.user_fall_rate) {
 	if(! stage.pill.fall()) {
 	    // so if you kill matches first, then reproduce it's possible to
 	    // grow into a 4-in-a-row that won't be checked until the next
@@ -579,24 +610,25 @@ Stage.prototype.handle_moves = function (modifier) {
 	    for (i in all) {
 		all[i].reproduce();
 	    }
+	    all = board.obtain_elements();
 	    if (matches.length == 0) {
 		matches = board.seek_matches();
 		if (matches.length == 0) {
 		    stage.pill = stage.new_pill();
 		    stage.handle_rhs();
-		    if (state != GAME_OVER) {
+		    if (game.state != GAME_OVER) {
 			all.push(stage.pill);
-			state = GAME_CTLPILL;
-			last_update = last_update + cfg.user_fall_rate;
+			game.state = GAME_CTLPILL;
+			game.last_update = game.last_update + cfg.user_fall_rate;
 		    }
 		} else {
-		    state = GAME_BIRTHANDDEATH;
+		    game.state = GAME_BIRTHANDDEATH;
 		}
 	    } else {
-		state = GAME_BIRTHANDDEATH;
+		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
-	last_update = last_update + cfg.user_fall_rate;
+	game.last_update = game.last_update + cfg.user_fall_rate;
     }
 };
 
@@ -612,20 +644,18 @@ Stage.prototype.render = function () {
 	all[i].render();
     }
     
-    // Score
-    ctx.fillStyle = "rgb(250, 250, 250)";
-    ctx.font = "24px Helvetica";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText("Points: " + points, 32, 32);
+    draw_text(board.viruses[0], [0.73*canvas.width,0.195*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(board.viruses[1], [0.73*canvas.width,0.240*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(board.viruses[2], [0.73*canvas.width,0.285*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text("$" + game.points, [0.66*canvas.width,0.34*canvas.height], "rgb(0,0,0)", "18px Helvetica");
 };
 
 // make pills fall
 Stage.prototype.handle_fall = function () {
     var now = Date.now();
 
-    if ((now - last_update) > cfg.grav_fall_rate) {
-	last_update = last_update + cfg.grav_fall_rate;
+    if ((now - game.last_update) > cfg.grav_fall_rate) {
+	game.last_update = game.last_update + cfg.grav_fall_rate;
 	var falling = false;
 	for (i in all) {
 	    thisone = all[i].fall();
@@ -637,12 +667,12 @@ Stage.prototype.handle_fall = function () {
 	    if (matches.length == 0) {
 		stage.pill = stage.new_pill();
 		stage.handle_rhs(); // update the new pills
-		if (state != GAME_OVER) {
+		if (game.state != GAME_OVER) {
 		    all.push(stage.pill);
-		    state = GAME_CTLPILL;
+		    game.state = GAME_CTLPILL;
 		}
 	    } else {
-		state = GAME_BIRTHANDDEATH;
+		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
     }
@@ -670,14 +700,40 @@ Stage.prototype.handle_rhs = function () {
     }
 }
 
+Stage.prototype.reset_all_timers = function (howlong) {
+    game.last_update += howlong;
+    for (i in all) {
+	if (all[i] instanceof Virus) {
+	    all[i].last_update += howlong;
+	}
+    }
+    for (i in anims) {
+	anims[i].last_update += howlong;
+    }
+}
+
 // The main game loop
 var main = function () {
-    if (state == GAME_CTLPILL) {
+    if ((game.state != GAME_PAUSE) && (KEY_SP in input.keyEvent)) {
+	game.oldstate = game.state;
+	game.state = GAME_PAUSE;
+	game.pause_time = Date.now();
+	draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
+	delete input.keyEvent[KEY_SP];
+    }
+    if (KEY_O in input.keyEvent) { // reset the level
+	game.state = GAME_LOAD;
+	stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
+	delete input.keyEvent[KEY_O];
+    }
+
+    if (game.state == GAME_CTLPILL) {
+	game.combo = 0; // reset combo when control is back with the player
 	stage.handle_moves();
 	stage.handle_animations();
 	stage.handle_rhs();
 	stage.render();
-    } else if (state == GAME_LOAD) {
+    } else if (game.state == GAME_LOAD) {
 	var checks = [].concat(bgIms,pillIms,halfIms,[virusIms,splodeIms]);
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
@@ -686,29 +742,35 @@ var main = function () {
 	    }
 	}
 	if (ready == true) {
-	    state = GAME_CTLPILL;
+	    game.state = GAME_CTLPILL;
 	}
-    } else if (state == GAME_FALLING) {
+    } else if (game.state == GAME_FALLING) {
 	stage.handle_fall();
 	stage.handle_animations();
 	stage.handle_rhs();
 	stage.render();
-    } else if (state == GAME_BIRTHANDDEATH) {
+    } else if (game.state == GAME_BIRTHANDDEATH) {
 	var done = stage.handle_animations();
 	stage.handle_rhs();
 	if (done) {
-	    last_update = Date.now(); // animations shouldn't make pills fall faster
+	    game.last_update = Date.now(); // animations shouldn't make pills fall faster
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
-		state = GAME_FALLING;
+		game.state = GAME_FALLING;
 	    } else {
-		state = GAME_BIRTHANDDEATH;
+		game.state = GAME_BIRTHANDDEATH;
 	    }
 	} else {
 	    all = board.obtain_elements();
 	}
 	stage.render();
+    } else if (game.state == GAME_PAUSE) {
+	if (KEY_SP in input.keyEvent) {
+	    game.state = game.oldstate;
+	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
+	    delete input.keyEvent[KEY_SP];
+	}
     }
 };
 
@@ -743,9 +805,12 @@ var cfg = {
     animate_wait_time : 300,
     splode_wait_time : 100
 };
-var state = GAME_LOAD;
-var last_update = Date.now();
-var points = 0;
+var game = {
+    state:GAME_LOAD,
+    last_update:Date.now(),
+    points : 0,
+    combo : 0
+};
 
 var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
 			    [randN(COL_PILLS.length)]),
