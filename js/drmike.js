@@ -8,6 +8,7 @@ var GAME_LOAD = 2;
 var GAME_FALLING = 3;
 var GAME_BIRTHANDDEATH = 4;
 var GAME_PAUSE = 5;
+var GAME_CESSATION = 6;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;
@@ -543,6 +544,13 @@ Stage.prototype.new_pill = function () {
     anims[ANIM_DOCTOR].insert(ind); // animate dr mario putting it in
     return new Pill(ind);
 }
+Stage.prototype.handle_reproduce = function () {
+    for (i in all) {
+	all[i].reproduce();
+    }
+    game.reproduce = false;
+};
+
 Stage.prototype.handle_moves = function (modifier) {
     var now = Date.now(), dir = null, rot = null;
 
@@ -607,23 +615,12 @@ Stage.prototype.handle_moves = function (modifier) {
 	    // you're constantly having them "get away"
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
-	    for (i in all) {
-		all[i].reproduce();
-	    }
+
+	    game.reproduce = true; // tag determines how cessation state goes
+
 	    all = board.obtain_elements();
 	    if (matches.length == 0) {
-		matches = board.seek_matches();
-		if (matches.length == 0) {
-		    stage.pill = stage.new_pill();
-		    stage.handle_rhs();
-		    if (game.state != GAME_OVER) {
-			all.push(stage.pill);
-			game.state = GAME_CTLPILL;
-			game.last_update = game.last_update + cfg.user_fall_rate;
-		    }
-		} else {
-		    game.state = GAME_BIRTHANDDEATH;
-		}
+		game.state = GAME_CESSATION;
 	    } else {
 		game.state = GAME_BIRTHANDDEATH;
 	    }
@@ -665,12 +662,7 @@ Stage.prototype.handle_fall = function () {
 	    matches = board.seek_matches();
 	    all = board.kill_matches(matches);
 	    if (matches.length == 0) {
-		stage.pill = stage.new_pill();
-		stage.handle_rhs(); // update the new pills
-		if (game.state != GAME_OVER) {
-		    all.push(stage.pill);
-		    game.state = GAME_CTLPILL;
-		}
+		game.state = GAME_CESSATION;
 	    } else {
 		game.state = GAME_BIRTHANDDEATH;
 	    }
@@ -694,9 +686,11 @@ Stage.prototype.handle_animations = function () {
 Stage.prototype.handle_rhs = function () {
     var now = Date.now();
     
-    // crazy kludge alert: animate can actually change the length of anims.
-    for (var i=0 ; i < anims.length ; i++) {
-	anims[i].animate(now);
+    // animate can delete some elements of animate
+    for (var i in anims) {
+	if (anims[i] != undefined) {
+	    anims[i].animate(now);
+	}
     }
 }
 
@@ -722,7 +716,12 @@ var main = function () {
 	delete input.keyEvent[KEY_SP];
     }
     if (KEY_O in input.keyEvent) { // reset the level
+	if (game.state == GAME_PAUSE) {
+	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
+
+	}
 	game.state = GAME_LOAD;
+	game.last_update = Date.now();
 	stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
 	delete input.keyEvent[KEY_O];
     }
@@ -771,6 +770,19 @@ var main = function () {
 	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
 	    delete input.keyEvent[KEY_SP];
 	}
+    } else if (game.state == GAME_CESSATION) {
+	if (game.reproduce == true) { // all tired out?
+	    stage.handle_reproduce();
+	    game.state = GAME_BIRTHANDDEATH;
+	} else {
+	    stage.pill = stage.new_pill();
+	    stage.handle_rhs();
+	    if (game.state != GAME_OVER) {
+		all.push(stage.pill);
+		game.state = GAME_CTLPILL;
+		game.last_update = game.last_update + cfg.user_fall_rate;
+	    }
+	}
     }
 };
 
@@ -808,6 +820,7 @@ var cfg = {
 var game = {
     state:GAME_LOAD,
     last_update:Date.now(),
+    reproduce : false,
     points : 0,
     combo : 0
 };
