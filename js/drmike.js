@@ -14,10 +14,11 @@ var KEY_UP = 38;
 var KEY_DN = 40;
 var KEY_RT = 39;
 var KEY_LT = 37;
-var KEY_D = 68;
-var KEY_F = 70;
-var KEY_SP = 32;
-var KEY_O = 79;
+var KEY_D = 68; // rotate
+var KEY_F = 70; // rotate
+var KEY_SP = 32; // pause
+var KEY_O = 79; // reset
+var KEY_S = 83; // switch music
 // d-pad stats
 var DIR_NO = 0;
 var DIR_LT = 1;
@@ -52,6 +53,7 @@ var FRIENDLY = 15;
 // animations
 var ANIM_LASTPILL = 2;
 var ANIM_DOCTOR = 3;
+var ANIM_RADIO = 5;
 var ANIM_VIRUS = 8;
 
 // utilities
@@ -277,7 +279,11 @@ Occupant.prototype.render = function () {
     ctx.restore();
 }
 Occupant.prototype.move = function (offset) {
-    return this.place([this.pos[0] + offset[0], this.pos[1] + offset[1]]);
+    var ret = this.place([this.pos[0] + offset[0], this.pos[1] + offset[1]]);
+    if (! ret) {
+	snds[0].play();
+    }
+    return ret;
 }
 Occupant.prototype.place = function (newpos) {
     var indi, indj;
@@ -446,16 +452,30 @@ Virus.prototype.animate = function (now) {
     }
 }
 
-var HalfPill = function(frompill,which_half) {
-    this.pos = frompill.getpos(which_half);
+var HalfPill = function() {
+    // two possible constructors: frompill, which_half, build from a pill
+    // or pos, color, rotation
     this.locations = [[0,0]];
-    if (which_half == 0) {
-	this.rotation = frompill.rotation;
-    } else {
-	this.rotation = (frompill.rotation + 2) % 4;
+    if (arguments.length == 2) {
+	frompill = arguments[0];
+	which_half = arguments[1];
+	this.pos = frompill.getpos(which_half);
+	if (which_half == 0) {
+	    this.rotation = frompill.rotation;
+	} else {
+	    this.rotation = (frompill.rotation + 2) % 4;
+	}
+	this.colors = frompill.colors[which_half];
+    } else if (arguments.length == 3) {
+	this.pos = arguments[0];
+	if (! this.place(this.pos)) {
+	    return false;
+	}
+	this.colors = arguments[1];
+	this.rotation = arguments[2];
     }
-    this.colors = frompill.colors[which_half];
-    this.sprite = halfIms[frompill.colors[which_half]];
+    this.sprite = halfIms[this.colors];	
+    return true;
 }
 HalfPill.prototype = new Occupant();
 
@@ -527,15 +547,227 @@ var Input = function () {
 
 // main game functions.. the stage constructor sets up the global
 // game state stuff.. guess that's sort of ugly, but oh well
-var Stage = function (layout) {
+var Stage = function (level) {
+    var virus_key = "ytm";
+    var pill_key = "0123456789ab";
+    game.last_update = Date.now();
     board = new Board();
     this.pill = this.new_pill();
     all = [this.pill];
-    for (i in layout) {
-	all.push(new Virus(layout[i][0], layout[i][1]));
+    for (var i = 0 ; i < board.width ; i++) {
+	for (var j = 0 ; j < board.height ; j++) {
+	    chr = this.levels[level][j][i];
+	    if ((ind = virus_key.indexOf(chr)) != -1) {
+		all.push(new Virus([i,j],ind));
+	    } else if ((ind = pill_key.indexOf(chr)) != -1) {
+		all.push(new HalfPill([i,j], ind % 3, Math.floor(ind/3)));
+	    }
+	}
     }
     all = board.obtain_elements(); // kinda redundant, but counts viruses too
 }
+Stage.prototype.levels = [ // levels are 16 x 20
+  ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "........t.......",
+    "............y...",
+    "...m............",
+    "................",
+    "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..t.............",
+    ".............t..",
+    "...y...m........",
+    "..........m.....",
+    ".........y......",
+    "................",
+    "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "m..t..y..m..t..y",
+    "................",
+    ".y..m..t..y..m..",
+    "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "...y............",
+    ".........t......",
+    ".....my...m.....",
+    ".............m..",
+    "..t.........y...",
+    "........t.......",
+    "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....t...........",
+    "........m.......",
+    "..m....y..t...y.",
+    "...t....m.......",
+    ".y.......t...m..",
+    ".....t..........",
+    "....m...m...m...",
+    "......y.........",
+    "...t......y.....",
+    "....y.......t...",
+    "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....yy..........",
+    "...mttmt........",
+    "..yt..ymy.......",
+    ".tm.....mtm.....",
+    ".my......ytmt...",
+    "ty.........ymyt.",
+    "m............mym",
+    "...............t"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "yyyyyyyyyyyyyyyy",
+    "tttttttttttttttt",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "yyyyyyyyyyyyyyyy",
+    "tttttttttttttttt"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "......mttm......",
+    "....ty....yt....",
+    "................",
+    ".....m..........",
+    "..........m.....",
+    "......y.........",
+    "........t.......",
+    "...........t....",
+    "................",
+    "....y...........",
+    "......m.........",
+    "................",
+    "..........y.....",
+    "................",
+    "................",
+    "......t........."],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "ytmytmytmytmytmy",
+    "ytmmmmyyyytmmmmt",
+    "yttttttttttmtytm",
+    "yyyyyyyyyyyyyyyy",
+    "tttttttmmmmmmmmm",
+    "tmmymmmmyttttyym",
+    "mmyymyyyytymmmyy",
+    "myytyyttttymymmm",
+    "mmttymmmmyyttttm",
+    "yyyyymttttttyymm"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..........m.....",
+    ".........mmm....",
+    ".........mmm...m",
+    "........mmmmm.mm",
+    "...yyyy...m...mm",
+    "..yyyyyy..m..mmm",
+    ".yyyyyyyy.tt...m",
+    ".yyyyyyyytttt..m",
+    ".yyyyyyytttttttt",
+    ".yyyyytttttttttt",
+    "..yttttttttttttt",
+    "tttttttttttttttt"]
+];
 Stage.prototype.new_pill = function () {
     ind = anims[2].seq[0];
     anims[2].seq[0] = anims[1].seq[0];
@@ -609,6 +841,7 @@ Stage.prototype.handle_moves = function (modifier) {
 
     if ((now - game.last_update) > cfg.user_fall_rate) {
 	if(! stage.pill.fall()) {
+	    snds[0].play();
 	    // so if you kill matches first, then reproduce it's possible to
 	    // grow into a 4-in-a-row that won't be checked until the next
 	    // pill comes. if you reproduce then kill, katie gets mad because
@@ -622,6 +855,7 @@ Stage.prototype.handle_moves = function (modifier) {
 	    if (matches.length == 0) {
 		game.state = GAME_CESSATION;
 	    } else {
+		snds[1].play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
@@ -664,6 +898,7 @@ Stage.prototype.handle_fall = function () {
 	    if (matches.length == 0) {
 		game.state = GAME_CESSATION;
 	    } else {
+		snds[1].play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
@@ -712,8 +947,21 @@ var main = function () {
 	game.oldstate = game.state;
 	game.state = GAME_PAUSE;
 	game.pause_time = Date.now();
+	if ((music.play_num != undefined) && (music.play_num != 0)) {
+	    music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+	    game.music_choice = 0;
+	    anims[ANIM_RADIO].seq = [game.music_choice];
+	}
 	draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
 	delete input.keyEvent[KEY_SP];
+    }
+    if ((game.state != GAME_PAUSE) && (KEY_S in input.keyEvent)) {
+	if ((music.play_num != undefined) && (music.play_num != 0)) {
+	    music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+	}
+	game.music_choice = (game.music_choice + 1) % 4;
+	anims[ANIM_RADIO].seq = [game.music_choice];
+	delete input.keyEvent[KEY_S];
     }
     if (KEY_O in input.keyEvent) { // reset the level
 	if (game.state == GAME_PAUSE) {
@@ -721,8 +969,7 @@ var main = function () {
 
 	}
 	game.state = GAME_LOAD;
-	game.last_update = Date.now();
-	stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
+	stage = new Stage(0);
 	delete input.keyEvent[KEY_O];
     }
 
@@ -758,6 +1005,7 @@ var main = function () {
 	    if (matches.length == 0) {
 		game.state = GAME_FALLING;
 	    } else {
+		snds[1].play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	} else {
@@ -781,6 +1029,15 @@ var main = function () {
 		all.push(stage.pill);
 		game.state = GAME_CTLPILL;
 		game.last_update = game.last_update + cfg.user_fall_rate;
+	    }
+	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
+		game.level++;
+		if (game.level == stage.levels.length) {
+		    console.log('you win');
+		    game.state = GAME_OVER;
+		} else {
+		    stage = new Stage(game.level);
+		}
 	    }
 	}
     }
@@ -822,7 +1079,9 @@ var game = {
     last_update:Date.now(),
     reproduce : false,
     points : 0,
-    combo : 0
+    combo : 0,
+    level : 0,
+    music_choice : 0
 };
 
 var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
@@ -840,6 +1099,8 @@ var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
 	     new AnimSprite(virusIms,[0.672, 0.245],[3,13],[0,1,2,3],1),
 	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3],2),
 ];
+
+var snds = [new Audio("snd/click.ogg"),new Audio("snd/kill.ogg")];
 var fingSprite = new AnimSprite("images/fingers.png",[0.72 , 0.40],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
@@ -859,7 +1120,7 @@ anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
     }
 }
 
-var stage = new Stage([[[10,15],COL_MAG],[[11,16],COL_TEA],[[12,17],COL_YEL]]);
+var stage = new Stage(game.level);
 // handle keyboard controls
 var input = new Input();
 addEventListener("keydown", function (e) {
