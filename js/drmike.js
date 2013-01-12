@@ -969,7 +969,7 @@ var main = function () {
 
 	}
 	game.state = GAME_LOAD;
-	stage = new Stage(0);
+	stage = new Stage(game.level);
 	delete input.keyEvent[KEY_O];
     }
 
@@ -984,6 +984,11 @@ var main = function () {
 	var ready = true;
 	for (var i = 0 ; i < checks.length ; i++) {
 	    if (! checks[i].ready) {
+		ready = false;
+	    }
+	}
+	for (var i = 0 ; i < snds.length ; i++) {
+	    if (! snds[i].readyState) {
 		ready = false;
 	    }
 	}
@@ -1080,7 +1085,7 @@ var game = {
     reproduce : false,
     points : 0,
     combo : 0,
-    level : 0,
+    level : 6,
     music_choice : 0
 };
 
