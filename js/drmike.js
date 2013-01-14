@@ -280,13 +280,11 @@ Occupant.prototype.render = function () {
 }
 Occupant.prototype.move = function (offset) {
     var ret = this.place([this.pos[0] + offset[0], this.pos[1] + offset[1]]);
-    if (! ret) {
-	snds[0].play();
-    }
     return ret;
 }
 Occupant.prototype.place = function (newpos) {
     var indi, indj;
+
     // first check if the spot is free (it can be null or this, but not something else)
     for(i = 0 ; i < this.locations.length ; i++) {
 	indi = newpos[0] + this.locations[i][0];
@@ -301,6 +299,7 @@ Occupant.prototype.place = function (newpos) {
 	    board[this.getpos(i)[0]][this.getpos(i)[1]] = null;
 	}
     }
+
     // and load the new spot
     for(i = 0 ; i < this.locations.length ; i++) {
 	indi = newpos[0] + this.locations[i][0];
@@ -993,6 +992,7 @@ var main = function () {
 	    }
 	}
 	if (ready == true) {
+	    stage.reset_all_timers(Date.now() - game.last_update);
 	    game.state = GAME_CTLPILL;
 	}
     } else if (game.state == GAME_FALLING) {
@@ -1046,6 +1046,7 @@ var main = function () {
 	    }
 	}
     }
+    setTimeout(main,FRIENDLY);
 };
 
 // create the canvas
@@ -1086,7 +1087,7 @@ var game = {
     points : 0,
     combo : 0,
     level : 6,
-    music_choice : 0
+    music_choice : 0,
 };
 
 var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
@@ -1137,5 +1138,5 @@ addEventListener("keyup", function (e) {
 }, false);
 
 // start main loop
-setInterval(main, FRIENDLY); // execute every friendly ms
+setTimeout(main, FRIENDLY); // execute every friendly ms
 
