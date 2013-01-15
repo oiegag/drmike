@@ -1,5 +1,5 @@
 var music = function () {
-    if (game.state != GAME_LOAD) {
+    if (game.state != GAME_LOAD && game.state != GAME_OVER) {
 	if (game.music_choice == 0) {
 	    return;
 	}
@@ -17,6 +17,11 @@ var music = function () {
 	}
     }
 }
+music.end = function () {
+    if ((music.play_num != undefined) && (music.play_num != 0)) {
+	music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+    }
+};
 
 music.play_num = undefined;
 music.loaded = [undefined,undefined,undefined,undefined];

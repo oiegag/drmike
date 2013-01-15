@@ -19,6 +19,7 @@ var KEY_F = 70; // rotate
 var KEY_SP = 32; // pause
 var KEY_O = 79; // reset
 var KEY_S = 83; // switch music
+var KEY_ENTER = 13; // just for menus
 // d-pad stats
 var DIR_NO = 0;
 var DIR_LT = 1;
@@ -57,6 +58,13 @@ var ANIM_RADIO = 5;
 var ANIM_VIRUS = 8;
 
 // utilities
+var realMod = function(n,m) {
+    n = n % m;
+    if (n < 0) {
+	n += m;
+    }
+    return n;
+};
 var randN = function (n) { // 0 ... n-1 random num
     return Math.floor(Math.random()*n);
 }
@@ -82,6 +90,7 @@ var draw_text = function (text,where,fill,font) {
     ctx.fillText(text, where[0], where[1]);
 };
 
+// class-like things
 // image loader and renderer for things not on the board
 var Sprite = function(src) {
     this.ready = false;
@@ -169,10 +178,8 @@ Board.prototype.kill_matches = function (matches) {
 	    addedSplode = new Splode([matches[i][j][0], matches[i][j][1]]);
 	    this[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
-    }
-    if (matches.length > 0) {
-	game.combo += matches.length;
-	game.points += 1000*Math.pow(2,game.combo-1);
+	game.points += 1000*game.combo;
+	game.combo *= 2;
     }
     return this.obtain_elements();
 }
@@ -485,7 +492,6 @@ var Pill = function(pilltype) {
     this.pilltype = pilltype;
     this.pos = [];
     if (! this.place([board.width/2 , 0])) {
-	console.log('end of game');
 	game.state = GAME_OVER;
     }
     this.sprite = pillIms;
@@ -512,10 +518,7 @@ Pill.prototype.adjust = function () {
     }
 }
 Pill.prototype.rotate = function (offset) {
-    var newrotation = (this.rotation + offset) % 4;
-    if (newrotation < 0) { // trying to implement mod 4 : 0,1,2,3
-	newrotation += 4;
-    }
+    var newrotation = realMod(this.rotation + offset,4);
     // check if this new second location is taken
     var newindi = this.pos[0] + ROT_SND[newrotation][0];
     var newindj = this.pos[1] + ROT_SND[newrotation][1];
@@ -549,7 +552,7 @@ var Input = function () {
 var Stage = function (level) {
     var virus_key = "ytm";
     var pill_key = "0123456789ab";
-    game.last_update = Date.now();
+    game.state = GAME_LOAD;
     board = new Board();
     this.pill = this.new_pill();
     all = [this.pill];
@@ -564,6 +567,14 @@ var Stage = function (level) {
 	}
     }
     all = board.obtain_elements(); // kinda redundant, but counts viruses too
+    this.reset_all_timers(-1); // total reset
+    game.last_update = Date.now();
+    if (game.music) {
+	game.music_choice = 1;
+    } else {
+	game.music_choice = 0;
+    }
+    setTimeout(this.main, FRIENDLY); // execute every friendly ms
 }
 Stage.prototype.levels = [ // levels are 16 x 20
   ["................",
@@ -929,38 +940,46 @@ Stage.prototype.handle_rhs = function () {
 }
 
 Stage.prototype.reset_all_timers = function (howlong) {
-    game.last_update += howlong;
-    for (i in all) {
-	if (all[i] instanceof Virus) {
-	    all[i].last_update += howlong;
+    if (howlong == -1) {
+	game.last_update = Date.now();
+	for (i in all) {
+	    if (all[i] instanceof Virus) {
+		all[i].last_update = Date.now();
+	    }
 	}
-    }
-    for (i in anims) {
-	anims[i].last_update += howlong;
+	for (i in anims) {
+	    anims[i].last_update = Date.now();
+	}
+    } else {
+	game.last_update += howlong;
+	for (i in all) {
+	    if (all[i] instanceof Virus) {
+		all[i].last_update += howlong;
+	    }
+	}
+	for (i in anims) {
+	    anims[i].last_update += howlong;
+	}
     }
 }
 
 // The main game loop
-var main = function () {
-    if ((game.state != GAME_PAUSE) && (KEY_SP in input.keyEvent)) {
-	game.oldstate = game.state;
-	game.state = GAME_PAUSE;
-	game.pause_time = Date.now();
-	if ((music.play_num != undefined) && (music.play_num != 0)) {
-	    music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+Stage.prototype.main = function () {
+    if (game.state != GAME_PAUSE) {
+	if (KEY_SP in input.keyEvent) {
+	    game.oldstate = game.state;
+	    game.state = GAME_PAUSE;
+	    game.pause_time = Date.now();
+	    music.end();
 	    game.music_choice = 0;
-	    anims[ANIM_RADIO].seq = [game.music_choice];
+	    draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
+	    delete input.keyEvent[KEY_SP];
 	}
-	draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
-	delete input.keyEvent[KEY_SP];
-    }
-    if ((game.state != GAME_PAUSE) && (KEY_S in input.keyEvent)) {
-	if ((music.play_num != undefined) && (music.play_num != 0)) {
-	    music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+	if ((KEY_S in input.keyEvent) && game.music) {
+	    music.end();
+	    game.music_choice = (game.music_choice + 1) % 4;
+	    delete input.keyEvent[KEY_S];
 	}
-	game.music_choice = (game.music_choice + 1) % 4;
-	anims[ANIM_RADIO].seq = [game.music_choice];
-	delete input.keyEvent[KEY_S];
     }
     if (KEY_O in input.keyEvent) { // reset the level
 	if (game.state == GAME_PAUSE) {
@@ -968,12 +987,13 @@ var main = function () {
 
 	}
 	game.state = GAME_LOAD;
+	game.points = 0;
 	stage = new Stage(game.level);
 	delete input.keyEvent[KEY_O];
     }
 
     if (game.state == GAME_CTLPILL) {
-	game.combo = 0; // reset combo when control is back with the player
+	game.combo = 1; // reset combo when control is back with the player
 	stage.handle_moves();
 	stage.handle_animations();
 	stage.handle_rhs();
@@ -987,7 +1007,7 @@ var main = function () {
 	    }
 	}
 	for (var i = 0 ; i < snds.length ; i++) {
-	    if (! snds[i].readyState) {
+	    if (! snds[i].audio.readyState) {
 		ready = false;
 	    }
 	}
@@ -1038,16 +1058,144 @@ var main = function () {
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
 		game.level++;
 		if (game.level == stage.levels.length) {
-		    console.log('you win');
 		    game.state = GAME_OVER;
 		} else {
 		    stage = new Stage(game.level);
 		}
 	    }
 	}
+    } else if (game.state == GAME_OVER) {
+	menu = new Menu();
+	music.end();
+	game.music_choice = 0;
+	return; // no continuation of the stage
     }
-    setTimeout(main,FRIENDLY);
+    setTimeout(stage.main,FRIENDLY);
 };
+
+// sound wrapper
+var Sound = function (audiofile) {
+    this.audio = new Audio(audiofile);
+};
+Sound.prototype.play = function () {
+    if (game.sfx) { // weird choice of ordering here..
+	this.audio.play();
+    }
+};
+
+// front-end menus
+// so numbering states was kind of stupid, let's try callbacks.
+var Menu = function (bg,ptr) {
+    this.state = this.main;
+    this.choice = 0;
+    this.running = true;
+    setTimeout(this.callback, FRIENDLY);
+};
+Menu.prototype.wait_for = function (waitfors) {
+    var finished = true;
+    for (i in waitfors) {
+	if (! waitfors[i].ready) {
+	    finished = false;
+	}
+    }
+    return finished;
+};
+Menu.prototype.callback = function () {
+    menu.state.call(menu);
+    if (menu.running == true) {
+	setTimeout(menu.callback, FRIENDLY);
+    }
+};
+Menu.prototype.main = function () {
+    if (! this.wait_for([bgIms[1],virusIms])) {
+	return;
+    }
+    ctx.drawImage(bgIms[1].image, 0, 0);
+    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.323*canvas.width, 
+		  (0.645 + this.choice*0.092)*canvas.height, SQUARESZ, SQUARESZ);
+    if (KEY_DN in input.keyEvent) {
+	delete input.keyEvent[KEY_DN];
+	this.choice = realMod(this.choice + 1,4);
+    }
+    if (KEY_UP in input.keyEvent) {
+	delete input.keyEvent[KEY_UP];
+	this.choice = realMod(this.choice - 1,4);
+    }
+    if (KEY_ENTER in input.keyEvent) {
+	var choices = [this.start_game, this.instructions, this.options, this.credits];
+	delete input.keyEvent[KEY_ENTER];
+	this.state = choices[this.choice];
+	this.opt_choice = 0;
+    }
+};
+Menu.prototype.start_game = function () {
+    this.running = false;
+    stage = new Stage(game.level);
+};
+Menu.prototype.instructions = function () {
+    if (bgIms[2].ready) {
+	ctx.drawImage(bgIms[2].image, 0, 0);
+    }
+    if (KEY_ENTER in input.keyEvent) {
+	delete input.keyEvent[KEY_ENTER];
+	this.state = this.main;
+    }
+};
+Menu.prototype.options = function () {
+    var bool_ind = {true : 0, false : 1};
+    var yposes = [0.51,0.72,0.83], dir = undefined;
+    if (! this.wait_for([bgIms[3],sliderIms[0],sliderIms[1]],virusIms)) {
+	return;
+    }
+
+    ctx.drawImage(bgIms[3].image, 0, 0);
+    ctx.drawImage(sliderIms[0].image, (0.385 + (game.level%5)*0.084)*canvas.width,
+		  (0.475 + 0.11*(Math.floor(game.level/5)))*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.51 + bool_ind[game.music]*0.16)*canvas.width, 0.69*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.51 + bool_ind[game.sfx]*0.16)*canvas.width, 0.8*canvas.height);
+    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.15*canvas.width, 
+		  yposes[this.opt_choice]*canvas.height, SQUARESZ, SQUARESZ);
+    if (KEY_ENTER in input.keyEvent) {
+	delete input.keyEvent[KEY_ENTER];
+	this.state = this.main;
+    }
+    if (KEY_DN in input.keyEvent) {
+	delete input.keyEvent[KEY_DN];
+	this.opt_choice = realMod(this.opt_choice + 1,3);
+    }
+    if (KEY_UP in input.keyEvent) {
+	delete input.keyEvent[KEY_UP];
+	this.opt_choice = realMod(this.opt_choice - 1,3);
+    }
+    if (KEY_RT in input.keyEvent) {
+	delete input.keyEvent[KEY_RT];
+	dir = 1;
+    }
+    if (KEY_LT in input.keyEvent) {
+	delete input.keyEvent[KEY_LT];
+	dir = -1;
+    }
+    if (dir != undefined) {
+	if (this.opt_choice == 0) { // levels
+	    game.level = realMod(game.level + dir,Stage.prototype.levels.length);
+	} else if (this.opt_choice == 1) { // music
+	    game.music = ! game.music;
+	} else if (this.opt_choice == 2) { // sfx
+	    game.sfx = ! game.sfx;
+	}
+    }
+};
+Menu.prototype.credits = function () {
+    if (bgIms[4].ready) {
+	ctx.drawImage(bgIms[4].image, 0, 0);
+    }
+    if (KEY_ENTER in input.keyEvent) {
+	delete input.keyEvent[KEY_ENTER];
+	this.state = this.main;
+    }
+};
+
+// end o definitions of class-like things
 
 // create the canvas
 var canvas = document.createElement("canvas");
@@ -1060,7 +1208,9 @@ ctx.mozImageSmoothingEnabled = false;
 document.body.appendChild(canvas);
 
 // load sprites
-var bgIms = [new Sprite("images/background.png")];
+var bgIms = [new Sprite("images/background.png"), new Sprite("images/intro.png"),
+	     new Sprite("images/instructions.png"), new Sprite("images/options.png"),
+	     new Sprite("images/credits.png")];
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
     new Sprite("images/pillt.png"),
@@ -1068,7 +1218,7 @@ var halfIms = [ // yel, tea, mag
 var pillIms = new Sprite("images/pill.png");
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
-
+var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.png")];
 
 // game objects
 var cfg = {
@@ -1085,9 +1235,11 @@ var game = {
     last_update:Date.now(),
     reproduce : false,
     points : 0,
-    combo : 0,
-    level : 6,
-    music_choice : 0,
+    combo : 1,
+    level : 5,
+    music_choice : 1,
+    music : true,
+    sfx : true
 };
 
 var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
@@ -1106,7 +1258,7 @@ var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
 	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3],2),
 ];
 
-var snds = [new Audio("snd/click.ogg"),new Audio("snd/kill.ogg")];
+var snds = [new Sound("snd/click.ogg"),new Sound("snd/kill.ogg")];
 var fingSprite = new AnimSprite("images/fingers.png",[0.72 , 0.40],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
@@ -1124,9 +1276,16 @@ anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
 	    delete this.animate;
 	}
     }
-}
+};
+anims[ANIM_RADIO].render = function () {
+    var sw = this.sprite.image.width/this.layout[0];
+    var sh = this.sprite.image.height/this.layout[1];
+    ctx.drawImage(this.sprite.image, this.spritepos[0]*sw, this.spritepos[1]*sh, sw, sh,
+		  this.pos[0], this.pos[1], sw*this.scale, sh*this.scale);
+    this.seq = [game.music_choice];
+};
 
-var stage = new Stage(game.level);
+
 // handle keyboard controls
 var input = new Input();
 addEventListener("keydown", function (e) {
@@ -1137,6 +1296,6 @@ addEventListener("keyup", function (e) {
     delete input.keyEvent[e.keyCode];
 }, false);
 
-// start main loop
-setTimeout(main, FRIENDLY); // execute every friendly ms
+var menu = new Menu();
+
 
