@@ -570,9 +570,8 @@ var Stage = function (level) {
     this.reset_all_timers(-1); // total reset
     game.last_update = Date.now();
     if (game.music) {
-	game.music_choice = 1;
-    } else {
-	game.music_choice = 0;
+	music.load();
+	music.play();
     }
     setTimeout(this.main, FRIENDLY); // execute every friendly ms
 }
@@ -970,14 +969,20 @@ Stage.prototype.main = function () {
 	    game.oldstate = game.state;
 	    game.state = GAME_PAUSE;
 	    game.pause_time = Date.now();
-	    music.end();
-	    game.music_choice = 0;
+	    if (game.music) {
+		game.music = false;
+		music.end();
+	    }
 	    draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
 	    delete input.keyEvent[KEY_SP];
 	}
-	if ((KEY_S in input.keyEvent) && game.music) {
-	    music.end();
-	    game.music_choice = (game.music_choice + 1) % 4;
+	if (KEY_S in input.keyEvent) {
+	    if (game.music) {
+		music.end();
+	    } else {
+		music.play();
+	    }
+	    game.music = ! game.music;
 	    delete input.keyEvent[KEY_S];
 	}
     }
@@ -1067,7 +1072,6 @@ Stage.prototype.main = function () {
     } else if (game.state == GAME_OVER) {
 	menu = new Menu();
 	music.end();
-	game.music_choice = 0;
 	return; // no continuation of the stage
     }
     setTimeout(stage.main,FRIENDLY);
@@ -1122,7 +1126,7 @@ Menu.prototype.main = function () {
 	this.choice = realMod(this.choice - 1,4);
     }
     if (KEY_ENTER in input.keyEvent) {
-	var choices = [this.start_game, this.instructions, this.options, this.credits];
+	var choices = [this.start_game, this.options, this.instructions, this.credits];
 	delete input.keyEvent[KEY_ENTER];
 	this.state = choices[this.choice];
 	this.opt_choice = 0;
@@ -1222,11 +1226,11 @@ var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.pn
 
 // game objects
 var cfg = {
-    user_fall_rate : 500, // how long between falls
+    user_fall_rate : 400, // how long between falls
     grav_fall_rate : 250, // how long between falls
-    fast_move : 100, // how long between moves in fast mode
-    fast_start : 500, // how long to press down before fast mode
-    vir_rep : 3,
+    fast_move : 80, // how long between moves in fast mode
+    fast_start : 400, // how long to press down before fast mode
+    vir_rep : 4,
     animate_wait_time : 300,
     splode_wait_time : 100
 };
@@ -1236,8 +1240,7 @@ var game = {
     reproduce : false,
     points : 0,
     combo : 1,
-    level : 5,
-    music_choice : 1,
+    level : 0,
     music : true,
     sfx : true
 };
@@ -1282,7 +1285,8 @@ anims[ANIM_RADIO].render = function () {
     var sh = this.sprite.image.height/this.layout[1];
     ctx.drawImage(this.sprite.image, this.spritepos[0]*sw, this.spritepos[1]*sh, sw, sh,
 		  this.pos[0], this.pos[1], sw*this.scale, sh*this.scale);
-    this.seq = [game.music_choice];
+    var spriteByMusic = {true:1, false:0};
+    this.seq = [spriteByMusic[game.music]];
 };
 
 
@@ -1297,5 +1301,4 @@ addEventListener("keyup", function (e) {
 }, false);
 
 var menu = new Menu();
-
 

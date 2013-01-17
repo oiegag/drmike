@@ -1,30 +1,37 @@
-var music = function () {
-    if (game.state != GAME_LOAD && game.state != GAME_OVER) {
-	if (game.music_choice == 0) {
-	    return;
-	}
-	if (music.play_num == undefined) {
-	    music.first_time = false;
-	    music.play_num = game.music_choice;
-	    music.loaded[music.play_num] = new Audio(music.playable[music.play_num]);
-	    music.loaded[music.play_num].play();
-	} else if (music.loaded[music.play_num].ended) {
-	    music.play_num = game.music_choice;
-	    if (music.loaded[music.play_num] == undefined) {
-		music.loaded[music.play_num] = new Audio(music.playable[music.play_num]);
-	    }
-	    music.loaded[music.play_num].play();
-	}
-    }
+var Music = function () {
+    this.playing = false;
+    this.loaded = false;
 }
-music.end = function () {
-    if ((music.play_num != undefined) && (music.play_num != 0)) {
-	music.loaded[music.play_num].currentTime = music.loaded[music.play_num].duration;
+Music.prototype.load = function () {
+    if (this.loaded == false) {
+	this.file = new Audio("snd/song1.ogg");
+	this.file.addEventListener('canplaythrough',function () {
+	    music.loaded = true;
+	    this.removeEventListener('canplaythrough', arguments.callee, false);
+	}, false);
+    }
+};
+Music.prototype.end = function () {
+    if (! this.playing) {
+	return;
+    }
+    this.file.pause();
+    this.file.currentTime = 0;
+    this.playing = false;
+};
+Music.prototype.play = function () {
+    if (this.playing) {
+	return;
+    }
+    if (this.loaded) {
+	this.file.play();
+	this.playing = true;
+    } else {
+	this.file.addEventListener('canplaythrough',function () {
+	    music.play();
+	    this.removeEventListener('canplaythrough', arguments.callee, false);
+	}, false);
     }
 };
 
-music.play_num = undefined;
-music.loaded = [undefined,undefined,undefined,undefined];
-music.playable = ["","snd/song1.ogg","snd/song2.ogg","snd/song3.ogg"];
-
-setInterval(music, 1000);
+music = new Music();
