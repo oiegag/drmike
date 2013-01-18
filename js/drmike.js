@@ -18,7 +18,8 @@ var KEY_D = 68; // rotate
 var KEY_F = 70; // rotate
 var KEY_SP = 32; // pause
 var KEY_O = 79; // reset
-var KEY_S = 83; // switch music
+var KEY_M = 77; // switch music
+
 var KEY_ENTER = 13; // just for menus
 // d-pad stats
 var DIR_NO = 0;
@@ -51,11 +52,6 @@ var BOARDXOFF = 27;
 var BOARDYOFF = 41;
 // how often to call main (ms)
 var FRIENDLY = 15;
-// animations
-var ANIM_LASTPILL = 2;
-var ANIM_DOCTOR = 3;
-var ANIM_RADIO = 5;
-var ANIM_VIRUS = 8;
 
 // utilities
 var realMod = function(n,m) {
@@ -111,13 +107,9 @@ var AnimSprite = function (filenmOrSprite, pos, layout, seq, begin, scale) {
     } else {
 	this.sprite = new Sprite(filenmOrSprite);
     }
-    this.pos = [pos[0]*canvas.width, pos[1]*canvas.height];
+    this.pos = [Math.round(pos[0]*canvas.width), Math.round(pos[1]*canvas.height)];
     this.layout = layout;
-    if (scale == undefined) {
-	this.scale = 1;
-    } else {
-	this.scale = scale;
-    }
+
     this.last_update = Date.now();
     this.seq = seq;
     this.seqstate = 0;
@@ -132,7 +124,7 @@ AnimSprite.prototype.render = function () {
     var sw = this.sprite.image.width/this.layout[0];
     var sh = this.sprite.image.height/this.layout[1];
     ctx.drawImage(this.sprite.image, this.spritepos[0]*sw, this.spritepos[1]*sh, sw, sh,
-		  this.pos[0], this.pos[1], sw*this.scale, sh*this.scale);
+		  this.pos[0], this.pos[1], sw, sh);
 };
 AnimSprite.prototype.animate = function (now) {
     if ((now - this.last_update) > this.wait_time) {
@@ -573,8 +565,13 @@ var Stage = function (level) {
 	music.load();
 	music.play();
     }
+    this.begin_level = Date.now();
     setTimeout(this.main, FRIENDLY); // execute every friendly ms
-}
+};
+Stage.prototype.get_fall_rate = function () {
+    return (cfg.user_fall_rate_end - cfg.user_fall_rate_start)*
+	(Date.now() - this.begin_level)/(10*60*1000) + cfg.user_fall_rate_start;
+};
 Stage.prototype.levels = [ // levels are 16 x 20
   ["................",
     "................",
@@ -778,11 +775,9 @@ Stage.prototype.levels = [ // levels are 16 x 20
     "tttttttttttttttt"]
 ];
 Stage.prototype.new_pill = function () {
-    ind = anims[2].seq[0];
-    anims[2].seq[0] = anims[1].seq[0];
-    anims[1].seq[0] = anims[0].seq[0];
-    anims[0].seq[0] = randN(COL_PILLS.length);
-    anims[ANIM_DOCTOR].insert(ind); // animate dr mario putting it in
+    ind = anims.pill.seq[0];
+    anims.pill.seq[0] = randN(COL_PILLS.length);
+    anims.doctor.insert(ind); // animate dr mario putting it in
     return new Pill(ind);
 }
 Stage.prototype.handle_reproduce = function () {
@@ -848,7 +843,8 @@ Stage.prototype.handle_moves = function (modifier) {
 	input.pressed = false;
     }
 
-    if ((now - game.last_update) > cfg.user_fall_rate) {
+    var fall_rate = stage.get_fall_rate();
+    if ((now - game.last_update) > fall_rate) {
 	if(! stage.pill.fall()) {
 	    snds[0].play();
 	    // so if you kill matches first, then reproduce it's possible to
@@ -868,7 +864,7 @@ Stage.prototype.handle_moves = function (modifier) {
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
-	game.last_update = game.last_update + cfg.user_fall_rate;
+	game.last_update = game.last_update + fall_rate;
     }
 };
 
@@ -876,18 +872,21 @@ Stage.prototype.handle_moves = function (modifier) {
 // draw everything
 Stage.prototype.render = function () {
     ctx.drawImage(bgIms[0].image, 0, 0);
-    for (var i = 0 ; i < anims.length ; i++) {
-	anims[i].render();
+    
+    for (var i in animOrder) {
+	if (anims[animOrder[i]] != undefined) {
+	    anims[animOrder[i]].render();
+	}
     }
 
     for(var i = 0 ; i < all.length ; i++) {
 	all[i].render();
     }
     
-    draw_text(board.viruses[0], [0.73*canvas.width,0.195*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text(board.viruses[1], [0.73*canvas.width,0.240*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text(board.viruses[2], [0.73*canvas.width,0.285*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text("$" + game.points, [0.66*canvas.width,0.34*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(board.viruses[0], [0.88*canvas.width,0.148*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(board.viruses[1], [0.88*canvas.width,0.193*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(board.viruses[2], [0.88*canvas.width,0.238*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text("$" + game.points, [0.8*canvas.width,0.28*canvas.height], "rgb(0,0,0)", "18px Helvetica");
 };
 
 // make pills fall
@@ -932,9 +931,7 @@ Stage.prototype.handle_rhs = function () {
     
     // animate can delete some elements of animate
     for (var i in anims) {
-	if (anims[i] != undefined) {
-	    anims[i].animate(now);
-	}
+	anims[i].animate(now);
     }
 }
 
@@ -976,14 +973,14 @@ Stage.prototype.main = function () {
 	    draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
 	    delete input.keyEvent[KEY_SP];
 	}
-	if (KEY_S in input.keyEvent) {
+	if (KEY_M in input.keyEvent) {
 	    if (game.music) {
 		music.end();
 	    } else {
 		music.play();
 	    }
 	    game.music = ! game.music;
-	    delete input.keyEvent[KEY_S];
+	    delete input.keyEvent[KEY_M];
 	}
     }
     if (KEY_O in input.keyEvent) { // reset the level
@@ -1058,7 +1055,7 @@ Stage.prototype.main = function () {
 	    if (game.state != GAME_OVER) {
 		all.push(stage.pill);
 		game.state = GAME_CTLPILL;
-		game.last_update = game.last_update + cfg.user_fall_rate;
+		game.last_update = Date.now();
 	    }
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
 		game.level++;
@@ -1066,6 +1063,11 @@ Stage.prototype.main = function () {
 		    game.state = GAME_OVER;
 		} else {
 		    stage = new Stage(game.level);
+		    draw_text('PATIENT CURED!', [canvas.width*.15, canvas.height*.4],'rgb(0,0,0)');
+		    draw_text('PRESS SPACE', [canvas.width*.17, canvas.height*.5], 'rgb(0,0,0)');
+		    game.oldstate = game.state;
+		    game.state = GAME_PAUSE;
+		    game.pause_time = Date.now();
 		}
 	    }
 	}
@@ -1147,18 +1149,18 @@ Menu.prototype.instructions = function () {
 };
 Menu.prototype.options = function () {
     var bool_ind = {true : 0, false : 1};
-    var yposes = [0.51,0.72,0.83], dir = undefined;
+    var yposes = [0.08,0.2,0.3], dir = undefined;
     if (! this.wait_for([bgIms[3],sliderIms[0],sliderIms[1]],virusIms)) {
 	return;
     }
 
     ctx.drawImage(bgIms[3].image, 0, 0);
-    ctx.drawImage(sliderIms[0].image, (0.385 + (game.level%5)*0.084)*canvas.width,
-		  (0.475 + 0.11*(Math.floor(game.level/5)))*canvas.height);
-    ctx.drawImage(sliderIms[1].image, (0.51 + bool_ind[game.music]*0.16)*canvas.width, 0.69*canvas.height);
-    ctx.drawImage(sliderIms[1].image, (0.51 + bool_ind[game.sfx]*0.16)*canvas.width, 0.8*canvas.height);
-    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.15*canvas.width, 
-		  yposes[this.opt_choice]*canvas.height, SQUARESZ, SQUARESZ);
+    ctx.drawImage(sliderIms[0].image, (0.0767 + (game.level%5)*0.1705)*canvas.width,
+		  (0.365 + 0.275*(Math.floor(game.level/5)))*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.music]*0.104)*canvas.width, 0.031*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.sfx]*0.104)*canvas.width, 0.131*canvas.height);
+    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.42*canvas.width, 
+		  (0.06 + .105*this.opt_choice)*canvas.height, SQUARESZ, SQUARESZ);
     if (KEY_ENTER in input.keyEvent) {
 	delete input.keyEvent[KEY_ENTER];
 	this.state = this.main;
@@ -1180,12 +1182,12 @@ Menu.prototype.options = function () {
 	dir = -1;
     }
     if (dir != undefined) {
-	if (this.opt_choice == 0) { // levels
-	    game.level = realMod(game.level + dir,Stage.prototype.levels.length);
-	} else if (this.opt_choice == 1) { // music
+	if (this.opt_choice == 0) { // music
 	    game.music = ! game.music;
-	} else if (this.opt_choice == 2) { // sfx
+	} else if (this.opt_choice == 1) { // music
 	    game.sfx = ! game.sfx;
+	} else if (this.opt_choice == 2) { // levels
+	    game.level = realMod(game.level + dir,Stage.prototype.levels.length);
 	}
     }
 };
@@ -1226,10 +1228,11 @@ var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.pn
 
 // game objects
 var cfg = {
-    user_fall_rate : 400, // how long between falls
+    user_fall_rate_start : 400, // how long between falls at beginning
+    user_fall_rate_end : 100, // at end
     grav_fall_rate : 250, // how long between falls
-    fast_move : 80, // how long between moves in fast mode
-    fast_start : 400, // how long to press down before fast mode
+    fast_move : 100, // how long between moves in fast mode
+    fast_start : 300, // how long to press down before fast mode
     vir_rep : 4,
     animate_wait_time : 300,
     splode_wait_time : 100
@@ -1245,46 +1248,45 @@ var game = {
     sfx : true
 };
 
-var anims = [new AnimSprite(pillIms, [0.678, 0.535], [1, COL_PILLS.length],
-			    [randN(COL_PILLS.length)]),
-	     new AnimSprite(pillIms, [0.715, 0.535], [1, COL_PILLS.length],
-			    [randN(COL_PILLS.length)]),
-	     new AnimSprite(pillIms, [0.752, 0.535], [1, COL_PILLS.length],
-			    [randN(COL_PILLS.length)]),
-	     new AnimSprite("images/doctor.png",[0.722, 0.396],[1, 5],
+var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
 			    [0,1,0,2,0,1,3,2]),
-	     new AnimSprite("images/patient.png",[0.611, 0.6], [1, 2],
+	     patient:new AnimSprite("images/patient.png",[0.606, 0.606], [1, 2],
 			   repeatN(0,30).concat([1,0,1])),
-	     new AnimSprite("images/radio.png",[0.856, 0.235],[1,4],[0]),
-	     new AnimSprite(virusIms,[0.672, 0.2],[3,13],[0,1,2,3]),
-	     new AnimSprite(virusIms,[0.672, 0.245],[3,13],[0,1,2,3],1),
-	     new AnimSprite(virusIms,[0.672, 0.29],[3,13],[0,1,2,3],2),
-];
+	     screen:new AnimSprite("images/screen.png",[0.861, 0.3825],[1,2],[0]),
+	     cloud:new AnimSprite("images/cloud.png",[0.75, 0.09],[1,4],[0,1,2,3]), // this isn't in the right location yet, didn't have time to finish
+	     pill:new AnimSprite(pillIms, [0.792, 0.175], [1, COL_PILLS.length],
+		   [randN(COL_PILLS.length)]),
+	     virus1:new AnimSprite(virusIms,[0.842, 0.148],[3,13],[0,1,2,3]),
+	     virus2:new AnimSprite(virusIms,[0.842, 0.192],[3,13],[0,1,2,3],1),
+	     virus3:new AnimSprite(virusIms,[0.842, 0.238],[3,13],[0,1,2,3],2),
+};
+animOrder = ["doctor","patient","screen","cloud","pill","virus1","virus2","virus3","heldpill","finger"];
 
 var snds = [new Sound("snd/click.ogg"),new Sound("snd/kill.ogg")];
-var fingSprite = new AnimSprite("images/fingers.png",[0.72 , 0.40],[1, 1], [0],0,1); // only animation that's temporary but not loaded
+var fingSprite = new AnimSprite("images/fingers.png",[0.606, 0.37],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
-anims[ANIM_DOCTOR].insert = function (ind) { // add a pill
+anims.doctor.insert = function (ind) { // add a pill
     this.spritepos[1] = 4;
     this.last_update = Date.now();
-    anims.push(new AnimSprite(pillIms,[0.735, 0.39],[1, COL_PILLS.length], [ind]));
-    anims.push(fingSprite);
+    anims.heldpill = new AnimSprite(pillIms,[0.617, 0.365],[1, COL_PILLS.length], [ind]);
+    anims.finger = fingSprite;
     this.animate = function (now) {
 	if ((now - this.last_update) > this.wait_time*2) {
 	    this.last_update += this.wait_time;
 	    // note that it's technically possible to end up getting a bunch of inserts before this function gets called
 	    // so you may need to drop multiple copies of fingers/pills here.
-	    anims = anims.slice(0,ANIM_VIRUS+1);
+	    delete anims.heldpill;
+	    delete anims.finger;
 	    this.spritepos[1] = 0;
 	    delete this.animate;
 	}
     }
 };
-anims[ANIM_RADIO].render = function () {
+anims.screen.render = function () {
     var sw = this.sprite.image.width/this.layout[0];
     var sh = this.sprite.image.height/this.layout[1];
     ctx.drawImage(this.sprite.image, this.spritepos[0]*sw, this.spritepos[1]*sh, sw, sh,
-		  this.pos[0], this.pos[1], sw*this.scale, sh*this.scale);
+		  this.pos[0], this.pos[1], sw, sh);
     var spriteByMusic = {true:1, false:0};
     this.seq = [spriteByMusic[game.music]];
 };

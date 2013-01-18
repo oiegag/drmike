@@ -8,6 +8,10 @@ Music.prototype.load = function () {
 	this.file.addEventListener('canplaythrough',function () {
 	    music.loaded = true;
 	    this.removeEventListener('canplaythrough', arguments.callee, false);
+	    this.addEventListener('ended',function () {
+		music.playing = false;
+		music.play();
+	    }, false);
 	}, false);
     }
 };
