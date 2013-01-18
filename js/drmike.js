@@ -375,6 +375,7 @@ var Virus = function(pos,color) {
 Virus.prototype = new Occupant();
 Virus.prototype.fall = function () {};
 Virus.prototype.reproduce = function () {
+    var success = false;
     this.cycle--;
     if(! this.cycle) {
 	var availables = [];
@@ -394,9 +395,11 @@ Virus.prototype.reproduce = function () {
 	    all.push(new Virus(availables[randN(availables.length)],this.colors));
 	    this.ani_state = VIR_ANI_BIRTHING;
 	    this.spritepos[1] = 7; // beginning of birth sequence
+	    success = true;
 	}
 	this.cycle = cfg.vir_rep;
     }
+    return success;
 }
 Virus.prototype.animate = function (now) {
     if ((now - this.last_update) > this.wait_time) {
@@ -572,8 +575,8 @@ Stage.prototype.get_fall_rate = function () {
     return (cfg.user_fall_rate_end - cfg.user_fall_rate_start)*
 	(Date.now() - this.begin_level)/(10*60*1000) + cfg.user_fall_rate_start;
 };
-Stage.prototype.levels = [ // levels are 16 x 20
-  ["................",
+Stage.prototype.levels = [
+   ["................",
     "................",
     "................",
     "................",
@@ -593,6 +596,46 @@ Stage.prototype.levels = [ // levels are 16 x 20
     "...m............",
     "................",
     "................"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "......yyyy......",
+    "......mmtt......",
+    "......ttmm......",
+    "......mmtt......"],
+    ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....m....y.....",
+    ".....m....y.....",
+    ".t...t....t...t.",
+    ".t...t....t...t.",
+    ".y............m.",
+    ".y............m."],
     ["................",
     "................",
     "................",
@@ -662,17 +705,17 @@ Stage.prototype.levels = [ // levels are 16 x 20
     "................",
     "................",
     "................",
-    "....t...........",
-    "........m.......",
-    "..m....y..t...y.",
-    "...t....m.......",
-    ".y.......t...m..",
-    ".....t..........",
-    "....m...m...m...",
-    "......y.........",
-    "...t......y.....",
-    "....y.......t...",
-    "................"],
+    "................",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "yyyyyyyyyyyyyyyy",
+    "tttttttttttttttt",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "tttttttttttttttt",
+    "mmmmmmmmmmmmmmmm",
+    "yyyyyyyyyyyyyyyy",
+    "tttttttttttttttt"],
     ["................",
     "................",
     "................",
@@ -702,78 +745,39 @@ Stage.prototype.levels = [ // levels are 16 x 20
     "................",
     "................",
     "................",
-    "................",
-    "tttttttttttttttt",
-    "mmmmmmmmmmmmmmmm",
-    "yyyyyyyyyyyyyyyy",
-    "tttttttttttttttt",
-    "tttttttttttttttt",
-    "mmmmmmmmmmmmmmmm",
-    "tttttttttttttttt",
-    "mmmmmmmmmmmmmmmm",
-    "yyyyyyyyyyyyyyyy",
-    "tttttttttttttttt"],
+    "....t...........",
+    "........m.......",
+    "..m....y..t...y.",
+    "...t....m.......",
+    ".y.......t...m..",
+    ".....t..........",
+    "....m...m...m...",
+    "......y.........",
+    "...t......y.....",
+    "....y.......t...",
+    "................"],
     ["................",
+    "................",
+    "................",
     "................",
     "................",
     "................",
     "......mttm......",
     "....ty....yt....",
+    "........m.......",
     "................",
-    ".....m..........",
-    "..........m.....",
-    "......y.........",
+    "......t...y.....",
+    "................",
     "........t.......",
-    "...........t....",
-    "................",
-    "....y...........",
+    "....y......m....",
     "......m.........",
     "................",
     "..........y.....",
     "................",
     "................",
-    "......t........."],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "ytmytmytmytmytmy",
-    "ytmmmmyyyytmmmmt",
-    "yttttttttttmtytm",
-    "yyyyyyyyyyyyyyyy",
-    "tttttttmmmmmmmmm",
-    "tmmymmmmyttttyym",
-    "mmyymyyyytymmmyy",
-    "myytyyttttymymmm",
-    "mmttymmmmyyttttm",
-    "yyyyymttttttyymm"],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "..........m.....",
-    ".........mmm....",
-    ".........mmm...m",
-    "........mmmmm.mm",
-    "...yyyy...m...mm",
-    "..yyyyyy..m..mmm",
-    ".yyyyyyyy.tt...m",
-    ".yyyyyyyytttt..m",
-    ".yyyyyyytttttttt",
-    ".yyyyytttttttttt",
-    "..yttttttttttttt",
-    "tttttttttttttttt"]
+    "......t........."]
 ];
+
 Stage.prototype.new_pill = function () {
     ind = anims.pill.seq[0];
     anims.pill.seq[0] = randN(COL_PILLS.length);
@@ -781,10 +785,16 @@ Stage.prototype.new_pill = function () {
     return new Pill(ind);
 }
 Stage.prototype.handle_reproduce = function () {
+    var anyonereproduced = false;
     for (i in all) {
-	all[i].reproduce();
+	if (all[i].reproduce()) {
+	    anyonereproduced = true;
+	}
     }
     game.reproduce = false;
+    if (anyonereproduced) {
+	snds[2].play();
+    }
 };
 
 Stage.prototype.handle_moves = function (modifier) {
@@ -1229,7 +1239,7 @@ var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.pn
 // game objects
 var cfg = {
     user_fall_rate_start : 400, // how long between falls at beginning
-    user_fall_rate_end : 100, // at end
+    user_fall_rate_end : 150, // at end
     grav_fall_rate : 250, // how long between falls
     fast_move : 100, // how long between moves in fast mode
     fast_start : 300, // how long to press down before fast mode
@@ -1262,7 +1272,7 @@ var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
 };
 animOrder = ["doctor","patient","screen","cloud","pill","virus1","virus2","virus3","heldpill","finger"];
 
-var snds = [new Sound("snd/click.ogg"),new Sound("snd/kill.ogg")];
+var snds = [new Sound("snd/thud.ogg"),new Sound("snd/kill.ogg"),new Sound("snd/birth.ogg")];
 var fingSprite = new AnimSprite("images/fingers.png",[0.606, 0.37],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims.doctor.insert = function (ind) { // add a pill

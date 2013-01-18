@@ -1,10 +1,11 @@
-var Music = function () {
+var Music = function (filenm) {
     this.playing = false;
     this.loaded = false;
+    this.filenm = filenm;
 }
 Music.prototype.load = function () {
     if (this.loaded == false) {
-	this.file = new Audio("snd/song1.ogg");
+	this.file = new Audio(this.filenm);
 	this.file.addEventListener('canplaythrough',function () {
 	    music.loaded = true;
 	    this.removeEventListener('canplaythrough', arguments.callee, false);
@@ -38,4 +39,4 @@ Music.prototype.play = function () {
     }
 };
 
-music = new Music();
+music = new Music("snd/song1.ogg");
