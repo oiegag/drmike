@@ -1019,7 +1019,7 @@ Stage.prototype.main = function () {
 	    }
 	}
 	for (var i = 0 ; i < snds.length ; i++) {
-	    if (! snds[i].audio.readyState) {
+	    if (! snds[i].loaded()) {
 		ready = false;
 	    }
 	}
@@ -1089,14 +1089,117 @@ Stage.prototype.main = function () {
     setTimeout(stage.main,FRIENDLY);
 };
 
-// sound wrapper
-var Sound = function (audiofile) {
-    this.audio = new Audio(audiofile);
+// sound loading setup
+var SoundFile = function (filenm,parent,loop) {
+    this.playing = false;
+    this.loaded = false;
+    this.error = false;
+    this.loop = loop;
+    this.parent = parent;
+    this.filenm = filenm;
+}
+SoundFile.prototype.load = function () {
+    if (! this.loaded) {
+	this.file = new Audio(this.filenm);
+	this.file.parent = this;
+	this.file.addEventListener('canplaythrough',function () {
+	    this.parent.loaded = true;
+	    this.parent.parent.register(this.parent,true);
+	    this.removeEventListener('canplaythrough', arguments.callee, false);
+	    if (this.parent.loop) {
+		this.addEventListener('ended',function () {
+		    this.parent.playing = false;
+		    this.parent.play();
+		}, false);
+	    } else {
+		this.addEventListener('ended',function () {
+		    this.parent.playing = false;
+		}, false);
+	    }
+	}, false);
+	this.file.addEventListener('error',function () {
+	    this.parent.error = true;
+	    this.parent.loaded = true;
+	    this.parent.parent.register(this.parent,false);
+	    this.removeEventListener('error', arguments.callee, false);
+	}, false);
+    }
+};
+SoundFile.prototype.end = function () {
+    if (! this.playing || this.error) {
+	return;
+    }
+    this.file.pause();
+    this.file.currentTime = 0;
+    this.playing = false;
+};
+SoundFile.prototype.play = function () {
+    if (this.playing || this.error) {
+	return;
+    }
+
+    if (this.loaded) {
+	this.file.play();
+	this.playing = true;
+    }
+};
+
+var Sound = function (trylist,loop) {
+    this.loaded = false;
+    this.playonload = false;
+    this.trying = 0;
+    this.trylist = trylist;
+    this.error = false;
+    this.loop = loop;
+};
+Sound.prototype.load = function () {
+    if (! this.loaded) {
+	this.kid = new SoundFile(this.trylist[this.trying],this,this.loop);
+	this.kid.load();
+    }
+};
+Sound.prototype.register = function(which,working) {
+    if (working) {
+	this.mine = which;
+	this.loaded = true;
+	if (this.playonload) {
+	    this.mine.play();
+	}
+    } else {
+	this.trying++;
+	if (this.trying == this.trylist.length) {
+	    this.loaded = true;
+	    this.error = true;
+	} else {
+	    this.kid = new SoundFile(this.trylist[this.trying],this,this.loop);
+	    this.kid.load();
+	}
+    }
 };
 Sound.prototype.play = function () {
-    if (game.sfx) { // weird choice of ordering here..
-	this.audio.play();
+    if (this.loaded && ! this.error) {
+	this.mine.play();
+    } else {
+	this.playonload = true;
     }
+};
+Sound.prototype.end = function () {
+    if (this.loaded && ! this.error) {
+	this.mine.end();
+    }
+};
+// now a subobject for the effects
+var SoundFX = function (audiofile) {
+    this.mine = new Sound([audiofile+".ogg", audiofile+".mp3"],false);
+    this.mine.load();
+};
+SoundFX.prototype.play = function () {
+    if (game.sfx) { // weird choice of ordering here..
+	this.mine.play();
+    }
+};
+SoundFX.prototype.loaded = function () {
+    return this.mine.loaded;
 };
 
 // front-end menus
@@ -1272,7 +1375,7 @@ var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
 };
 animOrder = ["doctor","patient","screen","cloud","pill","virus1","virus2","virus3","heldpill","finger"];
 
-var snds = [new Sound("snd/thud.ogg"),new Sound("snd/kill.ogg"),new Sound("snd/birth.ogg")];
+var snds = [new SoundFX("snd/thud"),new SoundFX("snd/kill"),new SoundFX("snd/birth")];
 var fingSprite = new AnimSprite("images/fingers.png",[0.606, 0.37],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims.doctor.insert = function (ind) { // add a pill
