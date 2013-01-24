@@ -19,7 +19,7 @@ var KEY_F = 70; // rotate
 var KEY_SP = 32; // pause
 var KEY_O = 79; // reset
 var KEY_M = 77; // switch music
-
+var KEY_Q = 81; // quit
 var KEY_ENTER = 13; // just for menus
 // d-pad stats
 var DIR_NO = 0;
@@ -54,6 +54,14 @@ var BOARDYOFF = 41;
 var FRIENDLY = 15;
 
 // utilities
+var tableToList = function (t) {
+    var out = [];
+    for (var i in t) {
+	out.push(t[i]);
+    }
+    return out;
+};
+
 var realMod = function(n,m) {
     n = n % m;
     if (n < 0) {
@@ -170,8 +178,12 @@ Board.prototype.kill_matches = function (matches) {
 	    addedSplode = new Splode([matches[i][j][0], matches[i][j][1]]);
 	    this[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
-	game.points += 1000*game.combo;
+	game.pts_pharma += 1000;
+	game.pts_combos += 1000*(game.combo-1);
 	game.combo *= 2;
+	if (matches[i].length > 4) {
+	    game.pts_highdos += 500;
+	}
     }
     return this.obtain_elements();
 }
@@ -486,8 +498,10 @@ var Pill = function(pilltype) {
     this.colors = COL_PILLS[pilltype];
     this.pilltype = pilltype;
     this.pos = [];
+    this.deadpill = false;
     if (! this.place([board.width/2 , 0])) {
-	game.state = GAME_OVER;
+	this.deadpill = true;
+	stage.end_stage(false);
     }
     this.sprite = pillIms;
     this.spritepos = [0,pilltype*2];
@@ -563,6 +577,7 @@ var Stage = function (level) {
     }
     all = board.obtain_elements(); // kinda redundant, but counts viruses too
     this.reset_all_timers(-1); // total reset
+    accum_points();
     game.last_update = Date.now();
     if (game.music) {
 	music.load();
@@ -570,6 +585,18 @@ var Stage = function (level) {
     }
     this.begin_level = Date.now();
     setTimeout(this.main, FRIENDLY); // execute every friendly ms
+};
+Stage.prototype.draw_score = function () {
+    draw_text(game.level, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text(randN(1000000), [0.36*canvas.width,0.261*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+game.pts_standing, [0.36*canvas.width,0.3025*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+game.pts_pharma, [0.36*canvas.width,0.351*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+game.pts_combos, [0.36*canvas.width,0.390*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+game.pts_highdos, [0.36*canvas.width,0.430*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+0, [0.36*canvas.width,0.472*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+ (game.pts_pharma + game.pts_combos + game.pts_highdos), [0.36*canvas.width,0.523*canvas.height],
+	      "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+calc_points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");    
 };
 Stage.prototype.get_fall_rate = function () {
     return (cfg.user_fall_rate_end - cfg.user_fall_rate_start)*
@@ -881,7 +908,7 @@ Stage.prototype.handle_moves = function (modifier) {
 
 // draw everything
 Stage.prototype.render = function () {
-    ctx.drawImage(bgIms[0].image, 0, 0);
+    ctx.drawImage(bgIms.game.image, 0, 0);
     
     for (var i in animOrder) {
 	if (anims[animOrder[i]] != undefined) {
@@ -896,7 +923,7 @@ Stage.prototype.render = function () {
     draw_text(board.viruses[0], [0.88*canvas.width,0.148*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text(board.viruses[1], [0.88*canvas.width,0.193*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text(board.viruses[2], [0.88*canvas.width,0.238*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text("$" + game.points, [0.8*canvas.width,0.28*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text("$" + calc_points().toString(), [0.8*canvas.width,0.28*canvas.height], "rgb(0,0,0)", "18px Helvetica");
 };
 
 // make pills fall
@@ -945,6 +972,18 @@ Stage.prototype.handle_rhs = function () {
     }
 }
 
+Stage.prototype.end_stage = function (won) {
+    if (! won) {
+	game.state = GAME_PAUSE;
+	game.oldstate = GAME_OVER;
+	ctx.drawImage(bgIms.lose.image, 0, 0);
+	stage.draw_score();
+    } else {
+	game.state = GAME_PAUSE;
+	game.oldstate = GAME_OVER;
+	draw_text('fine.. you win', [canvas.width*.15, canvas.height*.4],'rgb(0,0,0)');
+    }
+};
 Stage.prototype.reset_all_timers = function (howlong) {
     if (howlong == -1) {
 	game.last_update = Date.now();
@@ -980,7 +1019,7 @@ Stage.prototype.main = function () {
 		game.music = false;
 		music.end();
 	    }
-	    draw_text('PAUSE', [canvas.width*.24, canvas.height*.5]);
+	    ctx.drawImage(bgIms.pause.image, 0, 0);
 	    delete input.keyEvent[KEY_SP];
 	}
 	if (KEY_M in input.keyEvent) {
@@ -999,9 +1038,13 @@ Stage.prototype.main = function () {
 
 	}
 	game.state = GAME_LOAD;
-	game.points = 0;
+	reset_points();
 	stage = new Stage(game.level);
 	delete input.keyEvent[KEY_O];
+    }
+
+    if (KEY_Q in input.keyEvent) { // quit
+	game.state = GAME_OVER;
     }
 
     if (game.state == GAME_CTLPILL) {
@@ -1011,22 +1054,8 @@ Stage.prototype.main = function () {
 	stage.handle_rhs();
 	stage.render();
     } else if (game.state == GAME_LOAD) {
-	var checks = [].concat(bgIms,pillIms,halfIms,[virusIms,splodeIms]);
-	var ready = true;
-	for (var i = 0 ; i < checks.length ; i++) {
-	    if (! checks[i].ready) {
-		ready = false;
-	    }
-	}
-	for (var i = 0 ; i < snds.length ; i++) {
-	    if (! snds[i].loaded()) {
-		ready = false;
-	    }
-	}
-	if (ready == true) {
-	    stage.reset_all_timers(Date.now() - game.last_update);
-	    game.state = GAME_CTLPILL;
-	}
+	stage.reset_all_timers(Date.now() - game.last_update);
+	game.state = GAME_CTLPILL;
     } else if (game.state == GAME_FALLING) {
 	stage.handle_fall();
 	stage.handle_animations();
@@ -1062,7 +1091,7 @@ Stage.prototype.main = function () {
 	} else {
 	    stage.pill = stage.new_pill();
 	    stage.handle_rhs();
-	    if (game.state != GAME_OVER) {
+	    if (! stage.pill.deadpill) {
 		all.push(stage.pill);
 		game.state = GAME_CTLPILL;
 		game.last_update = Date.now();
@@ -1070,11 +1099,11 @@ Stage.prototype.main = function () {
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
 		game.level++;
 		if (game.level == stage.levels.length) {
-		    game.state = GAME_OVER;
+		    stage.end_stage(true);
 		} else {
+		    ctx.drawImage(bgIms.win.image, 0, 0);
+		    stage.draw_score();
 		    stage = new Stage(game.level);
-		    draw_text('PATIENT CURED!', [canvas.width*.15, canvas.height*.4],'rgb(0,0,0)');
-		    draw_text('PRESS SPACE', [canvas.width*.17, canvas.height*.5], 'rgb(0,0,0)');
 		    game.oldstate = game.state;
 		    game.state = GAME_PAUSE;
 		    game.pause_time = Date.now();
@@ -1226,12 +1255,13 @@ Menu.prototype.callback = function () {
     }
 };
 Menu.prototype.main = function () {
-    if (! this.wait_for([bgIms[1],virusIms])) {
+    if (! this.wait_for([bgIms.intro,virusIms,bgIms.loadtext])) {
 	return;
     }
-    ctx.drawImage(bgIms[1].image, 0, 0);
+    ctx.drawImage(bgIms.intro.image, 0, 0);
     ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.323*canvas.width, 
 		  (0.645 + this.choice*0.092)*canvas.height, SQUARESZ, SQUARESZ);
+    ctx.drawImage(bgIms.introtext.image, .3895*canvas.width, .633*canvas.height);
     if (KEY_DN in input.keyEvent) {
 	delete input.keyEvent[KEY_DN];
 	this.choice = realMod(this.choice + 1,4);
@@ -1248,12 +1278,35 @@ Menu.prototype.main = function () {
     }
 };
 Menu.prototype.start_game = function () {
-    this.running = false;
-    stage = new Stage(game.level);
+    var checks = [].concat(tableToList(bgIms),pillIms,halfIms,[virusIms,splodeIms]);
+    var ready = true, loaded = 0;
+    for (var i = 0 ; i < checks.length ; i++) {
+	if (! checks[i].ready) {
+	    ready = false;
+	} else {
+	    loaded++;
+	}
+    }
+    for (var i = 0 ; i < snds.length ; i++) {
+	if (! snds[i].loaded()) {
+	    ready = false;
+	} else {
+	    loaded++;
+	}
+    }
+    console.log(loaded + '/' + (checks.length + snds.length));
+    if (ready == true) {
+	this.running = false;
+	stage = new Stage(game.level);
+    } else {
+	ctx.drawImage(bgIms.intro.image, 0, 0);
+	ctx.drawImage(bgIms.loadtext.image, .3895*canvas.width, .733*canvas.height);
+	draw_text(loaded + "/" + (checks.length + snds.length), [.45*canvas.width,.9*canvas.height],'rgb(0,0,0)');
+    }
 };
 Menu.prototype.instructions = function () {
-    if (bgIms[2].ready) {
-	ctx.drawImage(bgIms[2].image, 0, 0);
+    if (bgIms.instructions.ready) {
+	ctx.drawImage(bgIms.instructions.image, 0, 0);
     }
     if (KEY_ENTER in input.keyEvent) {
 	delete input.keyEvent[KEY_ENTER];
@@ -1263,11 +1316,11 @@ Menu.prototype.instructions = function () {
 Menu.prototype.options = function () {
     var bool_ind = {true : 0, false : 1};
     var yposes = [0.08,0.2,0.3], dir = undefined;
-    if (! this.wait_for([bgIms[3],sliderIms[0],sliderIms[1]],virusIms)) {
+    if (! this.wait_for([bgIms.options,sliderIms[0],sliderIms[1]],virusIms)) {
 	return;
     }
 
-    ctx.drawImage(bgIms[3].image, 0, 0);
+    ctx.drawImage(bgIms.options.image, 0, 0);
     ctx.drawImage(sliderIms[0].image, (0.0767 + (game.level%5)*0.1705)*canvas.width,
 		  (0.365 + 0.275*(Math.floor(game.level/5)))*canvas.height);
     ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.music]*0.104)*canvas.width, 0.031*canvas.height);
@@ -1305,13 +1358,25 @@ Menu.prototype.options = function () {
     }
 };
 Menu.prototype.credits = function () {
-    if (bgIms[4].ready) {
-	ctx.drawImage(bgIms[4].image, 0, 0);
+    if (bgIms.credits.ready) {
+	ctx.drawImage(bgIms.credits.image, 0, 0);
     }
     if (KEY_ENTER in input.keyEvent) {
 	delete input.keyEvent[KEY_ENTER];
 	this.state = this.main;
     }
+};
+var calc_points = function () {
+    return game.pts_standing + game.pts_pharma + game.pts_combos + game.pts_highdos;
+};
+var reset_points = function () {
+    game.pts_pharma = 0;
+    game.pts_combos = 0;
+    game.pts_highdos = 0;
+};
+var accum_points = function () {
+    game.pts_standing += game.pts_pharma + game.pts_combos + game.pts_highdos;
+    reset_points();
 };
 
 // end o definitions of class-like things
@@ -1327,9 +1392,13 @@ ctx.mozImageSmoothingEnabled = false;
 document.body.appendChild(canvas);
 
 // load sprites
-var bgIms = [new Sprite("images/background.png"), new Sprite("images/intro.png"),
-	     new Sprite("images/instructions.png"), new Sprite("images/options.png"),
-	     new Sprite("images/credits.png")];
+var bgIms = {
+    game:new Sprite("images/background.png"), intro:new Sprite("images/intro.png"),
+    instructions:new Sprite("images/instructions.png"), options:new Sprite("images/options.png"),
+    credits:new Sprite("images/credits.png"), pause:new Sprite("images/pause.png"),
+    lose:new Sprite("images/lose.png"), win:new Sprite("images/win.png"),
+    introtext:new Sprite("images/introtext.png"), loadtext:new Sprite("images/loadtext.png"),
+};
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
     new Sprite("images/pillt.png"),
@@ -1344,8 +1413,8 @@ var cfg = {
     user_fall_rate_start : 400, // how long between falls at beginning
     user_fall_rate_end : 150, // at end
     grav_fall_rate : 250, // how long between falls
-    fast_move : 100, // how long between moves in fast mode
-    fast_start : 300, // how long to press down before fast mode
+    fast_move : 25, // how long between moves in fast mode
+    fast_start : 200, // how long to press down before fast mode
     vir_rep : 4,
     animate_wait_time : 300,
     splode_wait_time : 100
@@ -1354,7 +1423,10 @@ var game = {
     state:GAME_LOAD,
     last_update:Date.now(),
     reproduce : false,
-    points : 0,
+    pts_standing: 0, // standing balance
+    pts_pharma: 0,
+    pts_combos: 0,
+    pts_highdos: 0,
     combo : 1,
     level : 0,
     music : true,
