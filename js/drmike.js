@@ -38,7 +38,7 @@ var draw_text = function (text,where,fill,font) {
     ctx.font = font;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(text, where[0], where[1]);
+    ctx.fillText(text, Math.round(where[0]), Math.round(where[1]));
 };
 
 // random class-like things
@@ -525,7 +525,7 @@ Points.prototype.accum = function () {
 // end o definitions of class-like things
 
 // create the canvas
-var canvas = document.createElement("canvas");
+var canvas = document.getElementById("drmike");
 var ctx = canvas.getContext("2d");
 canvas.width = 640;
 canvas.height = 480;
@@ -621,10 +621,12 @@ anims.screen.render = function () {
 var input = new Input();
 addEventListener("keydown", function (e) {
     input.keyEvent[e.keyCode] = true;
+    e.preventDefault();
 }, false);
 
 addEventListener("keyup", function (e) {
     delete input.keyEvent[e.keyCode];
+    e.preventDefault();
 }, false);
 
 var menu = new Menu();

@@ -7,6 +7,7 @@ var GAME_FALLING = 3;
 var GAME_BIRTHANDDEATH = 4;
 var GAME_PAUSE = 5;
 var GAME_CESSATION = 6;
+var GAME_NEWLVL = 7;
 // keyboard
 var KEY_UP = 38;
 var KEY_DN = 40;

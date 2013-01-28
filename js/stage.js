@@ -165,6 +165,46 @@ Stage.prototype.levels = [
     "..t.........y...",
     "........t.......",
     "................"],
+   ["................",
+    "................",
+    "................",
+    "................",
+    "..11122211122211",
+    "0myyyyyyyyyyyyyy",
+    "0my............y",
+    "0myyyyyyyyyyyyyy",
+    "1mtttttttttttttt",
+    "1mt............t",
+    "1mtttttttttttttt",
+    "0myyyyyyyyyyyyyy",
+    "0my............y",
+    "0myyyyyyyyyyyyyy",
+    "1mtttttttttttttt",
+    "1mt............t",
+    "1mtttttttttttttt",
+    "0myyyyyyyyyyyyyy",
+    "0my............y",
+    "0myyyyyyyyyyyyyy"],
+   ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "0022000222000222",
+    "12tttttttttttttt",
+    "12..............",
+    "12..............",
+    "0022000222000222",
+    "12tttttttttttttt",
+    "12..............",
+    "12..............",
+    "0022000222000222",
+    "12tttttttttttttt",
+    "12..............",
+    "12.............."],
     ["................",
     "................",
     "................",
@@ -205,46 +245,6 @@ Stage.prototype.levels = [
     "ty.........ymyt.",
     "m............mym",
     "...............t"],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "....t...........",
-    "........m.......",
-    "..m....y..t...y.",
-    "...t....m.......",
-    ".y.......t...m..",
-    ".....t..........",
-    "....m...m...m...",
-    "......y.........",
-    "...t......y.....",
-    "....y.......t...",
-    "................"],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "......mttm......",
-    "....ty....yt....",
-    "........m.......",
-    "................",
-    "......t...y.....",
-    "................",
-    "........t.......",
-    "....y......m....",
-    "......m.........",
-    "................",
-    "..........y.....",
-    "................",
-    "................",
-    "......t........."]
 ];
 
 Stage.prototype.new_pill = function () {
@@ -539,14 +539,12 @@ Stage.prototype.main = function () {
 		game.last_update = Date.now();
 	    }
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
-		game.level++;
-		if (game.level == stage.levels.length) {
+		if ((game.level+1) == stage.levels.length) {
 		    stage.end_stage(true);
 		} else {
 		    ctx.drawImage(bgIms.win.image, 0, 0);
 		    stage.draw_score();
-		    stage = new Stage(game.level);
-		    game.oldstate = game.state;
+		    game.oldstate = GAME_NEWLVL;
 		    game.state = GAME_PAUSE;
 		    game.pause_time = Date.now();
 		}
@@ -556,6 +554,11 @@ Stage.prototype.main = function () {
 	menu = new Menu();
 	music.end();
 	return; // no continuation of the stage
+    } else if (game.state == GAME_NEWLVL) {
+	game.level++;
+	stage = new Stage(game.level);
+	game.state = GAME_LOAD;
     }
+	
     setTimeout(stage.main,FRIENDLY);
 };
