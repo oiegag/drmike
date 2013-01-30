@@ -9,17 +9,22 @@ var GAME_PAUSE = 5;
 var GAME_CESSATION = 6;
 var GAME_NEWLVL = 7;
 // keyboard
-var KEY_UP = 38;
-var KEY_DN = 40;
-var KEY_RT = 39;
-var KEY_LT = 37;
-var KEY_D = 68; // rotate
-var KEY_F = 70; // rotate
-var KEY_SP = 32; // pause
-var KEY_O = 79; // reset
-var KEY_M = 77; // switch music
-var KEY_Q = 81; // quit
-var KEY_ENTER = 13; // just for menus
+KEY = {
+    'up':38,
+    'dn':40,
+    'rt':39,
+    'lt':37,
+    'd':68,
+    'f':70,
+    'sp':32,
+    'o':79,
+    'm':77,
+    'q':81,
+    'en':13
+};
+PKEYS = { // keys to prevent default event on
+    38:'up',40:'dn', 39:'rt', 37:'lt',32:'sp'
+};
 // d-pad stats
 var DIR_NO = 0;
 var DIR_LT = 1;

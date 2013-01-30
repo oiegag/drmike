@@ -487,7 +487,23 @@ Pill.prototype.rotate = function (offset) {
     board[newindi][newindj] = this;
     this.rotation = newrotation;
     this.locations[1] = ROT_SND[this.rotation];
-}
+    return true;
+};
+Pill.prototype.brotate = function (offset) {
+    // rotate with a possible bump off a nearby object
+    offsets = [[0,0],[-1,0],[1,0]];
+    ioffsets = offsets.map(function (x) {return [-x[0],-x[1]]});
+    for (var off in offsets) {
+	if(this.move(offsets[off])) {
+	    if (this.rotate(offset)) {
+		return true;
+	    } else {
+		this.move(ioffsets[off]);
+	    }
+	}
+    }
+};	    
+	
 Pill.prototype.color = function (i,j) { // what color is at location i,j
     if ((i == this.pos[0]) && (j == this.pos[1])) {
 	return this.colors[0];
@@ -621,12 +637,16 @@ anims.screen.render = function () {
 var input = new Input();
 addEventListener("keydown", function (e) {
     input.keyEvent[e.keyCode] = true;
-    e.preventDefault();
+    if (e.keyCode in PKEYS) {
+	e.preventDefault();
+    } // try to prevent scrolling
 }, false);
 
 addEventListener("keyup", function (e) {
     delete input.keyEvent[e.keyCode];
-    e.preventDefault();
+    if (e.keyCode in PKEYS) {
+	e.preventDefault();
+    }
 }, false);
 
 var menu = new Menu();

@@ -270,31 +270,31 @@ Stage.prototype.handle_moves = function (modifier) {
     var now = Date.now(), dir = null, rot = null;
 
     // convert the keys to more like a d-pad, only one direction at a time
-    if ((KEY_LT in input.keyEvent) && !(KEY_RT in input.keyEvent)
-	&& !(KEY_DN in input.keyEvent)) {
+    if ((KEY.lt in input.keyEvent) && !(KEY.rt in input.keyEvent)
+	&& !(KEY.dn in input.keyEvent)) {
 	dir = DIR_LT;
-    } else if (!(KEY_LT in input.keyEvent) && (KEY_RT in input.keyEvent)
-	       && !(KEY_DN in input.keyEvent)) {
+    } else if (!(KEY.lt in input.keyEvent) && (KEY.rt in input.keyEvent)
+	       && !(KEY.dn in input.keyEvent)) {
 	dir = DIR_RT;
-    } else if (!(KEY_LT in input.keyEvent) && !(KEY_RT in input.keyEvent)
-	       && (KEY_DN in input.keyEvent)) {
+    } else if (!(KEY.lt in input.keyEvent) && !(KEY.rt in input.keyEvent)
+	       && (KEY.dn in input.keyEvent)) {
 	dir = DIR_DN;
     } else {
 	dir = DIR_NO;
     }
     // convert rotations to just one
-    if ((KEY_D in input.keyEvent) && !(KEY_F in input.keyEvent)) {
+    if ((KEY.d in input.keyEvent) && !(KEY.f in input.keyEvent)) {
 	rot = ROT_LEFT;
-	delete input.keyEvent[KEY_D];
-    } else if (!(KEY_D in input.keyEvent) && (KEY_F in input.keyEvent)) {
+	delete input.keyEvent[KEY.d];
+    } else if (!(KEY.d in input.keyEvent) && (KEY.f in input.keyEvent)) {
 	rot = ROT_RIGHT;
-	delete input.keyEvent[KEY_F];
+	delete input.keyEvent[KEY.f];
     } else {
 	rot = ROT_NONE;
     }
 
     if (rot != ROT_NONE) {
-	stage.pill.rotate(rot);
+	stage.pill.brotate(rot);
     }
     
     if (dir != DIR_NO) {
@@ -453,7 +453,7 @@ Stage.prototype.reset_all_timers = function (howlong) {
 // The main game loop
 Stage.prototype.main = function () {
     if (game.state != GAME_PAUSE) {
-	if (KEY_SP in input.keyEvent) {
+	if (KEY.sp in input.keyEvent) {
 	    game.oldstate = game.state;
 	    game.state = GAME_PAUSE;
 	    game.pause_time = Date.now();
@@ -462,19 +462,19 @@ Stage.prototype.main = function () {
 		music.end();
 	    }
 	    ctx.drawImage(bgIms.pause.image, 0, 0);
-	    delete input.keyEvent[KEY_SP];
+	    delete input.keyEvent[KEY.sp];
 	}
-	if (KEY_M in input.keyEvent) {
+	if (KEY.m in input.keyEvent) {
 	    if (game.music) {
 		music.end();
 	    } else {
 		music.play();
 	    }
 	    game.music = ! game.music;
-	    delete input.keyEvent[KEY_M];
+	    delete input.keyEvent[KEY.m];
 	}
     }
-    if (KEY_O in input.keyEvent) { // reset the level
+    if (KEY.o in input.keyEvent) { // reset the level
 	if (game.state == GAME_PAUSE) {
 	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
 
@@ -482,10 +482,10 @@ Stage.prototype.main = function () {
 	game.state = GAME_LOAD;
 	game.points.reset();
 	stage = new Stage(game.level);
-	delete input.keyEvent[KEY_O];
+	delete input.keyEvent[KEY.o];
     }
 
-    if (KEY_Q in input.keyEvent) { // quit
+    if (KEY.q in input.keyEvent) { // quit
 	game.state = GAME_OVER;
     }
 
@@ -521,10 +521,10 @@ Stage.prototype.main = function () {
 	}
 	stage.render();
     } else if (game.state == GAME_PAUSE) {
-	if (KEY_SP in input.keyEvent) {
+	if (KEY.sp in input.keyEvent) {
 	    game.state = game.oldstate;
 	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
-	    delete input.keyEvent[KEY_SP];
+	    delete input.keyEvent[KEY.sp];
 	}
     } else if (game.state == GAME_CESSATION) {
 	if (game.reproduce == true) { // all tired out?

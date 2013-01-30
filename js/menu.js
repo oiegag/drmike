@@ -29,17 +29,17 @@ Menu.prototype.main = function () {
     ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.323*canvas.width, 
 		  (0.645 + this.choice*0.092)*canvas.height, SQUARESZ, SQUARESZ);
     ctx.drawImage(bgIms.introtext.image, .3895*canvas.width, .633*canvas.height);
-    if (KEY_DN in input.keyEvent) {
-	delete input.keyEvent[KEY_DN];
+    if (KEY.dn in input.keyEvent) {
+	delete input.keyEvent[KEY.dn];
 	this.choice = realMod(this.choice + 1,4);
     }
-    if (KEY_UP in input.keyEvent) {
-	delete input.keyEvent[KEY_UP];
+    if (KEY.up in input.keyEvent) {
+	delete input.keyEvent[KEY.up];
 	this.choice = realMod(this.choice - 1,4);
     }
-    if (KEY_ENTER in input.keyEvent) {
+    if (KEY.en in input.keyEvent) {
 	var choices = [this.start_game, this.options, this.instructions, this.credits];
-	delete input.keyEvent[KEY_ENTER];
+	delete input.keyEvent[KEY.en];
 	this.state = choices[this.choice];
 	this.opt_choice = 0;
     }
@@ -75,8 +75,8 @@ Menu.prototype.instructions = function () {
     if (bgIms.instructions.ready) {
 	ctx.drawImage(bgIms.instructions.image, 0, 0);
     }
-    if (KEY_ENTER in input.keyEvent) {
-	delete input.keyEvent[KEY_ENTER];
+    if (KEY.en in input.keyEvent) {
+	delete input.keyEvent[KEY.en];
 	this.state = this.main;
     }
 };
@@ -94,24 +94,24 @@ Menu.prototype.options = function () {
     ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.sfx]*0.104)*canvas.width, 0.131*canvas.height);
     ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.42*canvas.width, 
 		  (0.06 + .105*this.opt_choice)*canvas.height, SQUARESZ, SQUARESZ);
-    if (KEY_ENTER in input.keyEvent) {
-	delete input.keyEvent[KEY_ENTER];
+    if (KEY.en in input.keyEvent) {
+	delete input.keyEvent[KEY.en];
 	this.state = this.main;
     }
-    if (KEY_DN in input.keyEvent) {
-	delete input.keyEvent[KEY_DN];
+    if (KEY.dn in input.keyEvent) {
+	delete input.keyEvent[KEY.dn];
 	this.opt_choice = realMod(this.opt_choice + 1,3);
     }
-    if (KEY_UP in input.keyEvent) {
-	delete input.keyEvent[KEY_UP];
+    if (KEY.up in input.keyEvent) {
+	delete input.keyEvent[KEY.up];
 	this.opt_choice = realMod(this.opt_choice - 1,3);
     }
-    if (KEY_RT in input.keyEvent) {
-	delete input.keyEvent[KEY_RT];
+    if (KEY.rt in input.keyEvent) {
+	delete input.keyEvent[KEY.rt];
 	dir = 1;
     }
-    if (KEY_LT in input.keyEvent) {
-	delete input.keyEvent[KEY_LT];
+    if (KEY.lt in input.keyEvent) {
+	delete input.keyEvent[KEY.lt];
 	dir = -1;
     }
     if (dir != undefined) {
@@ -128,8 +128,8 @@ Menu.prototype.credits = function () {
     if (bgIms.credits.ready) {
 	ctx.drawImage(bgIms.credits.image, 0, 0);
     }
-    if (KEY_ENTER in input.keyEvent) {
-	delete input.keyEvent[KEY_ENTER];
+    if (KEY.en in input.keyEvent) {
+	delete input.keyEvent[KEY.en];
 	this.state = this.main;
     }
 };
