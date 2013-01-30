@@ -524,17 +524,26 @@ var Points = function () {
     this.pharma = 0;
     this.combos = 0;
     this.highdos = 0;
+    this.speed = 0;
+};
+Points.prototype.speed_bonus = function () {
+    var val = 1000 - 1000*(Date.now() - stage.begin_level)/(10*60*1000);
+    if (val < 0) {
+	val = 0;
+    }
+    this.speed += Math.round(val);
 };
 Points.prototype.points = function () {
-    return this.standing + this.pharma + this.combos + this.highdos;
+    return this.standing + this.pharma + this.combos + this.highdos + this.speed;
 };
 Points.prototype.reset = function () {
     this.pharma = 0;
     this.combos = 0;
     this.highdos = 0;
+    this.speed = 0;
 };
 Points.prototype.accum = function () {
-    this.standing += this.pharma + this.combos + this.highdos;
+    this.standing += this.pharma + this.combos + this.highdos + this.speed;
     this.reset();
 };
 
@@ -557,7 +566,7 @@ var bgIms = {
     credits:new Sprite("images/credits.png"), pause:new Sprite("images/pause.png"),
     lose:new Sprite("images/lose.png"), win:new Sprite("images/win.png"),
     introtext:new Sprite("images/introtext.png"), loadtext:new Sprite("images/loadtext.png"),
-    logo:new Sprite("images/logo.png")
+    logo:new Sprite("images/logo.png"), challenge:new Sprite("images/challenge.png")
 };
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
@@ -566,7 +575,8 @@ var halfIms = [ // yel, tea, mag
 var pillIms = new Sprite("images/pill.png");
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
-var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.png"), new Sprite("images/slider3.png")];
+var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.png"), new Sprite("images/slider3.png"),
+		 new Sprite("images/slider4.png")];
 
 // game objects
 var cfg = {
@@ -607,7 +617,11 @@ var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
 };
 animOrder = ["doctor","patient","screen","cloud","pill","virus1","virus2","virus3","heldpill","finger"];
 
-var snds = [new SoundFX("snd/thud"),new SoundFX("snd/kill"),new SoundFX("snd/birth")];
+var snds = {
+    thud:new SoundFX("snd/thud"),kill:new SoundFX("snd/kill"),
+    birth:new SoundFX("snd/birth"),win:new SoundFX("snd/bell"),
+    lose:new SoundFX("snd/dead")
+};
 var fingSprite = new AnimSprite("images/fingers.png",[0.606, 0.37],[1, 1], [0],0,1); // only animation that's temporary but not loaded
 // animation-specific stuff
 anims.doctor.insert = function (ind) { // add a pill

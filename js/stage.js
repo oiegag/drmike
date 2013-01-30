@@ -35,8 +35,8 @@ Stage.prototype.draw_score = function () {
     draw_text('$'+game.points.pharma, [0.36*canvas.width,0.351*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.combos, [0.36*canvas.width,0.390*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.highdos, [0.36*canvas.width,0.430*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text('$'+0, [0.36*canvas.width,0.472*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text('$'+ (game.points.pharma + game.points.combos + game.points.highdos), [0.36*canvas.width,0.523*canvas.height],
+    draw_text('$'+game.points.speed, [0.36*canvas.width,0.472*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    draw_text('$'+ (game.points.pharma + game.points.combos + game.points.highdos + game.points.speed), [0.36*canvas.width,0.523*canvas.height],
 	      "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");    
 };
@@ -263,7 +263,7 @@ Stage.prototype.handle_reproduce = function () {
     }
     game.reproduce = false;
     if (anyonereproduced) {
-	snds[2].play();
+	snds.birth.play();
     }
 };
 
@@ -326,7 +326,9 @@ Stage.prototype.handle_moves = function (modifier) {
     var fall_rate = stage.get_fall_rate();
     if ((now - game.last_update) > fall_rate) {
 	if(! stage.pill.fall()) {
-	    snds[0].play();
+	    snds.thud.play();
+	    // clear the input so we don't begin in a free fall
+	    input.pressed = false;
 	    // so if you kill matches first, then reproduce it's possible to
 	    // grow into a 4-in-a-row that won't be checked until the next
 	    // pill comes. if you reproduce then kill, katie gets mad because
@@ -340,7 +342,7 @@ Stage.prototype.handle_moves = function (modifier) {
 	    if (matches.length == 0) {
 		game.state = GAME_CESSATION;
 	    } else {
-		snds[1].play();
+		snds.kill.play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
@@ -386,7 +388,7 @@ Stage.prototype.handle_fall = function () {
 	    if (matches.length == 0) {
 		game.state = GAME_CESSATION;
 	    } else {
-		snds[1].play();
+		snds.kill.play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	}
@@ -420,6 +422,8 @@ Stage.prototype.end_stage = function (won) {
 	game.state = GAME_PAUSE;
 	game.oldstate = GAME_OVER;
 	ctx.drawImage(bgIms.lose.image, 0, 0);
+	snds.lose.play();
+	music.pause();
 	stage.draw_score();
     } else {
 	game.state = GAME_PAUSE;
@@ -512,7 +516,7 @@ Stage.prototype.main = function () {
 	    if (matches.length == 0) {
 		game.state = GAME_FALLING;
 	    } else {
-		snds[1].play();
+		snds.kill.play();
 		game.state = GAME_BIRTHANDDEATH;
 	    }
 	} else {
@@ -545,6 +549,8 @@ Stage.prototype.main = function () {
 		    stage.end_stage(true);
 		} else {
 		    ctx.drawImage(bgIms.win.image, 0, 0);
+		    snds.win.play();
+		    game.points.speed_bonus();
 		    stage.draw_score();
 		    game.oldstate = GAME_NEWLVL;
 		    game.state = GAME_PAUSE;

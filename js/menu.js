@@ -38,10 +38,38 @@ Menu.prototype.main = function () {
 	this.choice = realMod(this.choice - 1,4);
     }
     if (KEY.en in input.keyEvent) {
-	var choices = [this.start_game, this.options, this.instructions, this.credits];
+	var choices = [this.lvlselect, this.options, this.instructions, this.credits];
 	delete input.keyEvent[KEY.en];
 	this.state = choices[this.choice];
 	this.opt_choice = 0;
+    }
+};
+Menu.prototype.lvlselect = function () {
+    if (! bgIms.challenge.ready) {
+	return;
+    }
+    ctx.drawImage(bgIms.challenge.image, 0, 0);
+    ctx.drawImage(sliderIms[3].image, (0.07 + realMod(game.level,5)*0.173)*canvas.width,
+		  (0.26+0.27*Math.floor(game.level/5))*canvas.height);
+    if (KEY.en in input.keyEvent) {
+	delete input.keyEvent[KEY.en];
+	this.state = this.start_game;
+    }
+    if (KEY.dn in input.keyEvent) {
+	delete input.keyEvent[KEY.dn];
+	game.level = realMod(game.level + 5,10);
+    }
+    if (KEY.up in input.keyEvent) {
+	delete input.keyEvent[KEY.up];
+	game.level = realMod(game.level - 5,10);
+    }
+    if (KEY.rt in input.keyEvent) {
+	delete input.keyEvent[KEY.rt];
+	game.level = realMod(game.level + 1,10);
+    }
+    if (KEY.lt in input.keyEvent) {
+	delete input.keyEvent[KEY.lt];
+	game.level = realMod(game.level - 1,10);
     }
 };
 Menu.prototype.start_game = function () {
@@ -54,21 +82,20 @@ Menu.prototype.start_game = function () {
 	    loaded++;
 	}
     }
-    for (var i = 0 ; i < snds.length ; i++) {
+    for (var i in snds) {
 	if (! snds[i].loaded()) {
 	    ready = false;
 	} else {
 	    loaded++;
 	}
     }
-    console.log(loaded + '/' + (checks.length + snds.length));
     if (ready == true) {
 	this.running = false;
 	stage = new Stage(game.level);
     } else {
 	ctx.drawImage(bgIms.intro.image, 0, 0);
 	ctx.drawImage(bgIms.loadtext.image, .3895*canvas.width, .733*canvas.height);
-	draw_text(loaded + "/" + (checks.length + snds.length), [.45*canvas.width,.9*canvas.height],'rgb(0,0,0)');
+	draw_text(loaded + "/" + (checks.length + Object.keys(snds).length), [.45*canvas.width,.9*canvas.height],'rgb(0,0,0)');
     }
 };
 Menu.prototype.instructions = function () {
