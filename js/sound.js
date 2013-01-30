@@ -42,6 +42,13 @@ SoundFile.prototype.end = function () {
     this.file.currentTime = 0;
     this.playing = false;
 };
+SoundFile.prototype.do_pause = function () {
+    if (! this.playing || this.error) {
+	return;
+    }
+    this.file.pause();
+    this.playing = false;
+};
 SoundFile.prototype.play = function () {
     if (this.playing || this.error) {
 	return;
@@ -95,6 +102,11 @@ Sound.prototype.play = function () {
 Sound.prototype.end = function () {
     if (this.loaded && ! this.error) {
 	this.mine.end();
+    }
+};
+Sound.prototype.pause = function () {
+    if (this.loaded && ! this.error) {
+	this.mine.do_pause();
     }
 };
 // now a subobject for the effects

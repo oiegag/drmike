@@ -82,29 +82,30 @@ Menu.prototype.instructions = function () {
 };
 Menu.prototype.options = function () {
     var bool_ind = {true : 0, false : 1};
-    var yposes = [0.08,0.2,0.3], dir = undefined;
-    if (! this.wait_for([bgIms.options,sliderIms[0],sliderIms[1]],virusIms)) {
+    var dir = undefined;
+    if (! this.wait_for([bgIms.options,sliderIms[0],sliderIms[1],sliderIms[2]])) {
 	return;
     }
 
     ctx.drawImage(bgIms.options.image, 0, 0);
-    ctx.drawImage(sliderIms[0].image, (0.0767 + (game.level%5)*0.1705)*canvas.width,
-		  (0.365 + 0.275*(Math.floor(game.level/5)))*canvas.height);
-    ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.music]*0.104)*canvas.width, 0.031*canvas.height);
-    ctx.drawImage(sliderIms[1].image, (0.715 + bool_ind[game.sfx]*0.104)*canvas.width, 0.131*canvas.height);
-    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.42*canvas.width, 
-		  (0.06 + .105*this.opt_choice)*canvas.height, SQUARESZ, SQUARESZ);
+    ctx.drawImage(virusIms.image, 0, 0, SQUARESZ, SQUARESZ, 0.02*canvas.width, 
+		  (0.39 + .12*this.opt_choice)*canvas.height, SQUARESZ, SQUARESZ);
+    ctx.drawImage(sliderIms[0].image, (0.43 + bool_ind[game.music]*0.183)*canvas.width, 0.365*canvas.height);
+    ctx.drawImage(sliderIms[0].image, (0.43 + bool_ind[game.sfx]*0.183)*canvas.width, 0.485*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.43 + game.pillspeed*0.182)*canvas.width, 0.605*canvas.height);
+    ctx.drawImage(sliderIms[1].image, (0.43 + game.virspeed*0.182)*canvas.width, 0.73*canvas.height);
+    ctx.drawImage(sliderIms[2].image, (0.43 + game.playmode*0.27)*canvas.width, 0.85*canvas.height);
     if (KEY.en in input.keyEvent) {
 	delete input.keyEvent[KEY.en];
 	this.state = this.main;
     }
     if (KEY.dn in input.keyEvent) {
 	delete input.keyEvent[KEY.dn];
-	this.opt_choice = realMod(this.opt_choice + 1,3);
+	this.opt_choice = realMod(this.opt_choice + 1,5);
     }
     if (KEY.up in input.keyEvent) {
 	delete input.keyEvent[KEY.up];
-	this.opt_choice = realMod(this.opt_choice - 1,3);
+	this.opt_choice = realMod(this.opt_choice - 1,5);
     }
     if (KEY.rt in input.keyEvent) {
 	delete input.keyEvent[KEY.rt];
@@ -117,10 +118,14 @@ Menu.prototype.options = function () {
     if (dir != undefined) {
 	if (this.opt_choice == 0) { // music
 	    game.music = ! game.music;
-	} else if (this.opt_choice == 1) { // music
+	} else if (this.opt_choice == 1) { // sfx
 	    game.sfx = ! game.sfx;
-	} else if (this.opt_choice == 2) { // levels
-	    game.level = realMod(game.level + dir,Stage.prototype.levels.length);
+	} else if (this.opt_choice == 2) { // pill speed
+	    game.pillspeed = realMod(game.pillspeed + dir,3);
+	} else if (this.opt_choice == 3) { // virus speed
+	    game.virspeed = realMod(game.virspeed + dir,3);
+	} else if (this.opt_choice == 4) { // play mode
+	    game.playmode = realMod(game.playmode + dir,2);
 	}
     }
 };

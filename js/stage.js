@@ -41,8 +41,9 @@ Stage.prototype.draw_score = function () {
     draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");    
 };
 Stage.prototype.get_fall_rate = function () {
-    return (cfg.user_fall_rate_end - cfg.user_fall_rate_start)*
-	(Date.now() - this.begin_level)/(10*60*1000) + cfg.user_fall_rate_start;
+    var ending = cfg.user_fall_rate_end[game.pillspeed],beginning = cfg.user_fall_rate_start[game.pillspeed];
+    return (ending - beginning)*
+	(Date.now() - this.begin_level)/(10*60*1000) + beginning;
 };
 Stage.prototype.levels = [
    ["................",
@@ -458,8 +459,7 @@ Stage.prototype.main = function () {
 	    game.state = GAME_PAUSE;
 	    game.pause_time = Date.now();
 	    if (game.music) {
-		game.music = false;
-		music.end();
+		music.pause();
 	    }
 	    ctx.drawImage(bgIms.pause.image, 0, 0);
 	    delete input.keyEvent[KEY.sp];
@@ -477,7 +477,6 @@ Stage.prototype.main = function () {
     if (KEY.o in input.keyEvent) { // reset the level
 	if (game.state == GAME_PAUSE) {
 	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
-
 	}
 	game.state = GAME_LOAD;
 	game.points.reset();
@@ -524,6 +523,9 @@ Stage.prototype.main = function () {
 	if (KEY.sp in input.keyEvent) {
 	    game.state = game.oldstate;
 	    stage.reset_all_timers(Date.now() - game.pause_time); // sad sad state of the world we live in
+	    if (game.music) {
+		music.play();
+	    }
 	    delete input.keyEvent[KEY.sp];
 	}
     } else if (game.state == GAME_CESSATION) {

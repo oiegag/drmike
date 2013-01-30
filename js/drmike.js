@@ -319,7 +319,7 @@ var Virus = function(pos,color) {
     this.colors = color;
     this.sprite = virusIms;
     this.spritepos = [color, 10]; // empty square birth sequence
-    this.cycle = cfg.vir_rep;
+    this.cycle = cfg.vir_rep[game.virspeed];
     this.last_update = Date.now();
     this.wait_time = cfg.animate_wait_time/2; // faster during birth
     this.aniseq = 2; // two empties before birth
@@ -356,7 +356,7 @@ Virus.prototype.reproduce = function () {
 	    this.spritepos[1] = 7; // beginning of birth sequence
 	    success = true;
 	}
-	this.cycle = cfg.vir_rep;
+	this.cycle = cfg.vir_rep[game.virspeed];
     }
     return success;
 }
@@ -557,6 +557,7 @@ var bgIms = {
     credits:new Sprite("images/credits.png"), pause:new Sprite("images/pause.png"),
     lose:new Sprite("images/lose.png"), win:new Sprite("images/win.png"),
     introtext:new Sprite("images/introtext.png"), loadtext:new Sprite("images/loadtext.png"),
+    logo:new Sprite("images/logo.png")
 };
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
@@ -565,16 +566,16 @@ var halfIms = [ // yel, tea, mag
 var pillIms = new Sprite("images/pill.png");
 var virusIms = new Sprite("images/virus.png"); // yel, tea, mag
 var splodeIms = new Sprite("images/splode.png");
-var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.png")];
+var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.png"), new Sprite("images/slider3.png")];
 
 // game objects
 var cfg = {
-    user_fall_rate_start : 400, // how long between falls at beginning
-    user_fall_rate_end : 150, // at end
-    grav_fall_rate : 250, // how long between falls
+    user_fall_rate_start : [150,400,400], // how long between falls at beginning
+    user_fall_rate_end : [150,150,400], // at end
+    grav_fall_rate : 125, // how long between falls
     fast_move : 25, // how long between moves in fast mode
     fast_start : 200, // how long to press down before fast mode
-    vir_rep : 4,
+    vir_rep : [3,4,5],
     animate_wait_time : 300,
     splode_wait_time : 100
 };
@@ -586,7 +587,10 @@ var game = {
     combo : 1,
     level : 0,
     music : true,
-    sfx : true
+    sfx : true,
+    pillspeed : 1,
+    virspeed : 1,
+    playmode : 0
 };
 
 var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
@@ -649,5 +653,17 @@ addEventListener("keyup", function (e) {
     }
 }, false);
 
-var menu = new Menu();
+var menu = undefined;
 
+logowait = function () {
+    if (bgIms.logo.ready) {
+	ctx.drawImage(bgIms.logo.image, 0, 0);
+	setTimeout(function () {
+	    menu = new Menu();
+	}, 2);
+    } else {
+	setTimeout(logowait,FRIENDLY);
+    }
+}; 
+
+setTimeout(logowait,FRIENDLY);
