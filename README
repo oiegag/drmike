@@ -1,0 +1,4 @@
+This is a web game called Dr. Mike. It's set up like Dr. Mario from the NES
+except the viruses regenerate. I've been testing it mostly in Chromium, but
+it seems to work alright in Firefox and IE9. It uses canvas elements, so
+older browsers shouldn't work.
