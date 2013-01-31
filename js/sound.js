@@ -1,4 +1,26 @@
-// sound loading setup
+/*
+   sound.js --  sound loading setup
+
+   Copyright 2013 Mike McFadden
+   Author: Mike McFadden <compositiongamesdev@gmail.com>
+   URL: http://github.com/oiegag/drmike
+
+   This file is part of Dr. Mike.
+
+   Dr. Mike is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+   
+   Dr. Mike is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with Dr. Mike.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 var SoundFile = function (filenm,parent,loop) {
     this.playing = false;
     this.loaded = false;

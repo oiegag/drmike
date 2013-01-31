@@ -1,4 +1,26 @@
-// front-end menus
+/*
+   menu.js -- front-end menus
+
+   Copyright 2013 Mike McFadden
+   Author: Mike McFadden <compositiongamesdev@gmail.com>
+   URL: http://github.com/oiegag/drmike
+
+   This file is part of Dr. Mike.
+
+   Dr. Mike is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+   
+   Dr. Mike is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with Dr. Mike.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 // so numbering states was kind of stupid, let's try callbacks.
 var Menu = function (bg,ptr) {
     this.state = this.main;
@@ -44,32 +66,56 @@ Menu.prototype.main = function () {
 	this.opt_choice = 0;
     }
 };
+Menu.prototype.survive_from_level = function (level) {
+    // what survive to set for a given level selection
+    return cfg.survives[level];
+};
+Menu.prototype.level_from_survive = function (survive) {
+    // what level to start at for a given survive, should be the index of the last entry in cfg.survives
+    // that is under survive
+    for (var i = 0 ; cfg.survives[i] <= survive && i < 10; i++);
+    if (i > 0) {
+	i--;
+    }
+    return i;
+};
 Menu.prototype.lvlselect = function () {
-    if (! bgIms.challenge.ready) {
+    if (! bgIms.challenge.ready || ! bgIms.survival.ready) {
 	return;
     }
-    ctx.drawImage(bgIms.challenge.image, 0, 0);
-    ctx.drawImage(sliderIms[3].image, (0.07 + realMod(game.level,5)*0.173)*canvas.width,
-		  (0.26+0.27*Math.floor(game.level/5))*canvas.height);
+    if (game.playmode == 0) {
+	ctx.drawImage(bgIms.challenge.image, 0, 0);
+	var level = game.level;
+    } else if(game.playmode == 1) {
+	ctx.drawImage(bgIms.survival.image, 0, 0);
+	var level = this.level_from_survive(game.survive);
+    }
+    ctx.drawImage(sliderIms[3].image, (0.07 + realMod(level,5)*0.173)*canvas.width,
+		  (0.26+0.27*Math.floor(level/5))*canvas.height);
+    if (KEY.dn in input.keyEvent) {
+	delete input.keyEvent[KEY.dn];
+	level = realMod(level + 5,10);
+    }
+    if (KEY.up in input.keyEvent) {
+	delete input.keyEvent[KEY.up];
+	level = realMod(level - 5,10);
+    }
+    if (KEY.rt in input.keyEvent) {
+	delete input.keyEvent[KEY.rt];
+	level = realMod(level + 1,10);
+    }
+    if (KEY.lt in input.keyEvent) {
+	delete input.keyEvent[KEY.lt];
+	level = realMod(level - 1,10);
+    }
     if (KEY.en in input.keyEvent) {
 	delete input.keyEvent[KEY.en];
 	this.state = this.start_game;
     }
-    if (KEY.dn in input.keyEvent) {
-	delete input.keyEvent[KEY.dn];
-	game.level = realMod(game.level + 5,10);
-    }
-    if (KEY.up in input.keyEvent) {
-	delete input.keyEvent[KEY.up];
-	game.level = realMod(game.level - 5,10);
-    }
-    if (KEY.rt in input.keyEvent) {
-	delete input.keyEvent[KEY.rt];
-	game.level = realMod(game.level + 1,10);
-    }
-    if (KEY.lt in input.keyEvent) {
-	delete input.keyEvent[KEY.lt];
-	game.level = realMod(game.level - 1,10);
+    if (game.playmode == 0) {
+	game.level = level;
+    } else if (game.playmode == 1) {
+	game.survive = this.survive_from_level(level);
     }
 };
 Menu.prototype.start_game = function () {
@@ -91,7 +137,7 @@ Menu.prototype.start_game = function () {
     }
     if (ready == true) {
 	this.running = false;
-	stage = new Stage(game.level);
+	stage = new Stage();
     } else {
 	ctx.drawImage(bgIms.intro.image, 0, 0);
 	ctx.drawImage(bgIms.loadtext.image, .3895*canvas.width, .733*canvas.height);

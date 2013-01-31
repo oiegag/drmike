@@ -1,4 +1,25 @@
-// dr mike
+/*
+   drmike.js -- main setup
+
+   Copyright 2013 Mike McFadden
+   Author: Mike McFadden <compositiongamesdev@gmail.com>
+   URL: http://github.com/oiegag/drmike
+
+   This file is part of Dr. Mike.
+
+   Dr. Mike is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+   
+   Dr. Mike is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with Dr. Mike.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 // utilities
 var tableToList = function (t) {
@@ -566,7 +587,8 @@ var bgIms = {
     credits:new Sprite("images/credits.png"), pause:new Sprite("images/pause.png"),
     lose:new Sprite("images/lose.png"), win:new Sprite("images/win.png"),
     introtext:new Sprite("images/introtext.png"), loadtext:new Sprite("images/loadtext.png"),
-    logo:new Sprite("images/logo.png"), challenge:new Sprite("images/challenge.png")
+    logo:new Sprite("images/logo.png"), challenge:new Sprite("images/challenge.png"),
+    survival:new Sprite("images/survival.png")
 };
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
@@ -587,7 +609,8 @@ var cfg = {
     fast_start : 200, // how long to press down before fast mode
     vir_rep : [3,4,5],
     animate_wait_time : 300,
-    splode_wait_time : 100
+    splode_wait_time : 100,
+    survives : [1, 2, 3, 4, 6, 7, 8, 9, 10, 13] // survival level settings
 };
 var game = {
     state:GAME_LOAD,
@@ -595,7 +618,8 @@ var game = {
     reproduce : false,
     points : new Points(),
     combo : 1,
-    level : 0,
+    level : 0, // challenge number 0-9
+    survive : 1, // approx fill percentage
     music : true,
     sfx : true,
     pillspeed : 1,
@@ -674,7 +698,7 @@ logowait = function () {
 	ctx.drawImage(bgIms.logo.image, 0, 0);
 	setTimeout(function () {
 	    menu = new Menu();
-	}, 2);
+	}, 2000);
     } else {
 	setTimeout(logowait,FRIENDLY);
     }

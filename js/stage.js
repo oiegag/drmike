@@ -1,21 +1,36 @@
-// main game functions.. the stage constructor sets up the global
-// game state stuff.. guess that's sort of ugly, but oh well
-var Stage = function (level) {
-    var virus_key = "ytm";
-    var pill_key = "0123456789ab";
+/*
+   stage.js -- sets up global stuff for a stage you're in
+
+   Copyright 2013 Mike McFadden
+   Author: Mike McFadden <compositiongamesdev@gmail.com>
+   URL: http://github.com/oiegag/drmike
+
+   This file is part of Dr. Mike.
+
+   Dr. Mike is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+   
+   Dr. Mike is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with Dr. Mike.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+var Stage = function () {
     game.state = GAME_LOAD;
+
     board = new Board();
     this.pill = this.new_pill();
     all = [this.pill];
-    for (var i = 0 ; i < board.width ; i++) {
-	for (var j = 0 ; j < board.height ; j++) {
-	    chr = this.levels[level][j][i];
-	    if ((ind = virus_key.indexOf(chr)) != -1) {
-		all.push(new Virus([i,j],ind));
-	    } else if ((ind = pill_key.indexOf(chr)) != -1) {
-		all.push(new HalfPill([i,j], ind % 3, Math.floor(ind/3)));
-	    }
-	}
+    if (game.playmode == 0) {
+	this.new_challenge(game.level);
+    } else if (game.playmode == 1) {
+	this.new_survive(game.survive);
     }
     all = board.obtain_elements(); // kinda redundant, but counts viruses too
     this.reset_all_timers(-1); // total reset
@@ -28,8 +43,24 @@ var Stage = function (level) {
     this.begin_level = Date.now();
     setTimeout(this.main, FRIENDLY); // execute every friendly ms
 };
+Stage.prototype.new_survive = function (survive) {
+
+    // ramp probability from 50% to 10% at fillmax
+    ramp = function (j) {return Math.exp(-Math.pow((board.height-j)/game.survive,2))};
+    for (var i = 0 ; i < board.width ; i++) {
+	for (var j = 0 ; j < board.height ; j++) {
+	    if (j > 6 && Math.random() < ramp(j)) {
+		all.push(new Virus([i,j],randN(3)));
+	    }
+	}
+    }
+};
 Stage.prototype.draw_score = function () {
-    draw_text(game.level, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    if (game.playmode == 0) {
+	draw_text(game.level+1, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    } else if (game.playmode == 1) {
+	draw_text(game.survive, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    }
     draw_text(randN(1000000), [0.36*canvas.width,0.261*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.standing, [0.36*canvas.width,0.3025*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.pharma, [0.36*canvas.width,0.351*canvas.height], "rgb(0,0,0)", "18px Helvetica");
@@ -44,6 +75,21 @@ Stage.prototype.get_fall_rate = function () {
     var ending = cfg.user_fall_rate_end[game.pillspeed],beginning = cfg.user_fall_rate_start[game.pillspeed];
     return (ending - beginning)*
 	(Date.now() - this.begin_level)/(10*60*1000) + beginning;
+};
+Stage.prototype.new_challenge = function (level) {
+    var virus_key = "ytm";
+    var pill_key = "0123456789ab";
+
+    for (var i = 0 ; i < board.width ; i++) {
+	for (var j = 0 ; j < board.height ; j++) {
+	    chr = this.levels[level][j][i];
+	    if ((ind = virus_key.indexOf(chr)) != -1) {
+		all.push(new Virus([i,j],ind));
+	    } else if ((ind = pill_key.indexOf(chr)) != -1) {
+		all.push(new HalfPill([i,j], ind % 3, Math.floor(ind/3)));
+	    }
+	}
+    }
 };
 Stage.prototype.levels = [
    ["................",
@@ -428,7 +474,10 @@ Stage.prototype.end_stage = function (won) {
     } else {
 	game.state = GAME_PAUSE;
 	game.oldstate = GAME_OVER;
-	draw_text('fine.. you win', [canvas.width*.15, canvas.height*.4],'rgb(0,0,0)');
+	ctx.drawImage(bgIms.win.image, 0, 0);
+	snds.win.play();
+	game.points.speed_bonus();
+	stage.draw_score();
     }
 };
 Stage.prototype.reset_all_timers = function (howlong) {
@@ -484,7 +533,7 @@ Stage.prototype.main = function () {
 	}
 	game.state = GAME_LOAD;
 	game.points.reset();
-	stage = new Stage(game.level);
+	stage = new Stage();
 	delete input.keyEvent[KEY.o];
     }
 
@@ -545,7 +594,7 @@ Stage.prototype.main = function () {
 		game.last_update = Date.now();
 	    }
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
-		if ((game.level+1) == stage.levels.length) {
+		if (game.playmode == 0 && (game.level+1) == stage.levels.length) {
 		    stage.end_stage(true);
 		} else {
 		    ctx.drawImage(bgIms.win.image, 0, 0);
@@ -563,8 +612,12 @@ Stage.prototype.main = function () {
 	music.end();
 	return; // no continuation of the stage
     } else if (game.state == GAME_NEWLVL) {
-	game.level++;
-	stage = new Stage(game.level);
+	if (game.playmode == 0) {
+	    game.level++;
+	} else if (game.playmode == 1) {
+	    game.survive += .25;
+	}
+	stage = new Stage();
 	game.state = GAME_LOAD;
     }
 	
