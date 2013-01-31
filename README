@@ -4,6 +4,5 @@ it seems to work alright in Firefox and IE9. It uses canvas elements, so
 older browsers shouldn't work.
 
 Hopefully we'll hook up a website for this in a few days, but for now it can
-be played using the <a
-href="http://htmlpreview.github.com/?https://github.com/oiegag/drmike/blob/master/index.html">
-html preview </a>.
+be played using the html preview:
+http://htmlpreview.github.com/?https://github.com/oiegag/drmike/blob/master/index.html
