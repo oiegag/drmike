@@ -69,7 +69,10 @@ Stage.prototype.draw_score = function () {
     draw_text('$'+game.points.speed, [0.36*canvas.width,0.472*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+ (game.points.pharma + game.points.combos + game.points.highdos + game.points.speed), [0.36*canvas.width,0.523*canvas.height],
 	      "rgb(0,0,0)", "18px Helvetica");
-    draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");    
+    draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");
+    if (parent.kongregate != undefined) {
+	parent.kongregate.stats.submit("Max_score_ch" + (game.level+1),game.points.points());
+    }
 };
 Stage.prototype.get_fall_rate = function () {
     var ending = cfg.user_fall_rate_end[game.pillspeed],beginning = cfg.user_fall_rate_start[game.pillspeed];
