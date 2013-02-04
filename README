@@ -3,6 +3,5 @@ except the viruses regenerate. I've been testing it mostly in Chromium, but
 it seems to work alright in Firefox and IE9. It uses canvas elements, so
 older browsers shouldn't work.
 
-Hopefully we'll hook up a website for this in a few days, but for now it can
-be played using the html preview:
-http://htmlpreview.github.com/?https://github.com/oiegag/drmike/blob/master/index.html
+This can be played at the project page:
+http://oiegag.github.com/drmike/
