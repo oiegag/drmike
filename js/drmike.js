@@ -660,8 +660,6 @@ anims.doctor.insert = function (ind) { // add a pill
     this.animate = function (now) {
 	if ((now - this.last_update) > this.wait_time*2) {
 	    this.last_update += this.wait_time;
-	    // note that it's technically possible to end up getting a bunch of inserts before this function gets called
-	    // so you may need to drop multiple copies of fingers/pills here.
 	    delete anims.heldpill;
 	    delete anims.finger;
 	    this.spritepos[1] = 0;
