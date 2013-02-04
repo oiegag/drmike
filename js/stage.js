@@ -291,7 +291,7 @@ Stage.prototype.levels = [
     ".my......ytmt...",
     "ty.........ymyt.",
     "m............mym",
-    "...............t"],
+    "...............t"]
 ];
 
 Stage.prototype.new_pill = function () {
@@ -474,7 +474,12 @@ Stage.prototype.end_stage = function (won) {
     } else {
 	game.state = GAME_PAUSE;
 	game.oldstate = GAME_OVER;
-	ctx.drawImage(bgIms.win.image, 0, 0);
+	if (game.challenges.reduce(function (x,y) {return x && y;})) {
+	    ctx.drawImage(bgIms.complete.image, 0, 0);
+	    game.playmode = 1;
+	} else {
+	    ctx.drawImage(bgIms.win.image, 0, 0);
+	}
 	snds.win.play();
 	game.points.speed_bonus();
 	stage.draw_score();
@@ -595,8 +600,12 @@ Stage.prototype.main = function () {
 	    }
 	    if (board.viruses[0] == 0 && board.viruses[1] == 0 && board.viruses[2] == 0) {
 		if (game.playmode == 0 && (game.level+1) == stage.levels.length) {
+		    game.challenges[game.level] = true;
 		    stage.end_stage(true);
 		} else {
+		    if (game.playmode == 0) {
+			game.challenges[game.level] = true;
+		    }
 		    ctx.drawImage(bgIms.win.image, 0, 0);
 		    snds.win.play();
 		    game.points.speed_bonus();

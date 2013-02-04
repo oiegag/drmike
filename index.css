@@ -1,26 +1,17 @@
 BODY {
-    	background: #ffffff;
-		text-align:center;
+    background: #ffffff;
+    text-align:center;
 }
-
-
-
-
 
 H1 {
-    	font-family: 'Times New Roman';
-    
-		font-size: 36px;
-    
-		color: black;
-    		text-align:center;
-
+    font-family: 'Times New Roman';
+    font-size: 36px;
+    color: black;
+    text-align:center;
 }
 
-
-
-table.center {
-		width:70%; 
-    		margin-left:15%; 
-    		margin-right:15%;
+div.center {
+    width:70%;
+    margin-left:15%;
+    margin-right:15%;
 }

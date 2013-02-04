@@ -568,7 +568,10 @@ Points.prototype.accum = function () {
     this.reset();
 };
 
-// end o definitions of class-like things
+// end of definitions of class-like things
+
+// remove the no javascript warning
+document.getElementById("warning").style.display = "none";
 
 // create the canvas
 var canvas = document.getElementById("drmike");
@@ -588,7 +591,7 @@ var bgIms = {
     lose:new Sprite("images/lose.png"), win:new Sprite("images/win.png"),
     introtext:new Sprite("images/introtext.png"), loadtext:new Sprite("images/loadtext.png"),
     logo:new Sprite("images/logo.png"), challenge:new Sprite("images/challenge.png"),
-    survival:new Sprite("images/survival.png")
+    survival:new Sprite("images/survival.png"), complete: new Sprite("images/complete.png")
 };
 var halfIms = [ // yel, tea, mag
     new Sprite("images/pilly.png"),
@@ -624,7 +627,8 @@ var game = {
     sfx : true,
     pillspeed : 1,
     virspeed : 1,
-    playmode : 0
+    playmode : 0,
+    challenges : repeatN(false,10) // challenges completed
 };
 
 var anims = {doctor:new AnimSprite("images/doctor.png",[0.606,0.375],[1, 5],
