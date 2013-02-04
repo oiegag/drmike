@@ -484,6 +484,9 @@ Stage.prototype.end_stage = function (won) {
 	if (game.challenges.reduce(function (x,y) {return x && y;})) {
 	    ctx.drawImage(bgIms.complete.image, 0, 0);
 	    game.playmode = 1;
+	    if (parent.kongregate != undefined) {
+		parent.kongregate.stats.submit("Max_completed",1);
+	    }
 	}
     }
 };
