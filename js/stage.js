@@ -244,11 +244,11 @@ Stage.prototype.levels = [
     "12tttttttttttttt",
     "12..............",
     "12..............",
-    "0022000222000222",
+    "0020222000222000",
     "12tttttttttttttt",
     "12..............",
     "12..............",
-    "0022000222000222",
+    "0002000222000222",
     "12tttttttttttttt",
     "12..............",
     "12.............."],
@@ -272,6 +272,27 @@ Stage.prototype.levels = [
     "mmmmmmmmmmmmmmmm",
     "yyyyyyyyyyyyyyyy",
     "tttttttttttttttt"],
+   ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "........t.......",
+    "............y...",
+    "...m............",
+    "................",
+    "................"],
+/*
     ["................",
     "................",
     "................",
@@ -291,7 +312,7 @@ Stage.prototype.levels = [
     ".my......ytmt...",
     "ty.........ymyt.",
     "m............mym",
-    "...............t"]
+    "...............t"]*/
 ];
 
 Stage.prototype.new_pill = function () {
@@ -474,15 +495,14 @@ Stage.prototype.end_stage = function (won) {
     } else {
 	game.state = GAME_PAUSE;
 	game.oldstate = GAME_OVER;
-	if (game.challenges.reduce(function (x,y) {return x && y;})) {
-	    ctx.drawImage(bgIms.complete.image, 0, 0);
-	    game.playmode = 1;
-	} else {
-	    ctx.drawImage(bgIms.win.image, 0, 0);
-	}
+	ctx.drawImage(bgIms.win.image, 0, 0);
 	snds.win.play();
 	game.points.speed_bonus();
 	stage.draw_score();
+	if (game.challenges.reduce(function (x,y) {return x && y;})) {
+	    ctx.drawImage(bgIms.complete.image, 0, 0);
+	    game.playmode = 1;
+	}
     }
 };
 Stage.prototype.reset_all_timers = function (howlong) {
