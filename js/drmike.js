@@ -146,11 +146,9 @@ Board.prototype.kill_matches = function (matches) {
 	    this[matches[i][j][0]][matches[i][j][1]] = addedSplode;
 	}
 	game.points.pharma += 1000;
-	game.points.combos += 1000*(game.combo-1);
-	game.combo *= 2;
-	if (matches[i].length > 4) {
-	    game.points.highdos += 500;
-	}
+	game.points.combos += Math.round(1000*(game.combo-1)/10)*10;
+	game.combo *= 1.1;
+	game.points.highdos += Math.round((1000*Math.pow(1.1,matches[i].length-4) - 1000)/10)*10;
     }
     return this.obtain_elements();
 }
@@ -547,7 +545,7 @@ var Points = function () {
     this.speed = 0;
 };
 Points.prototype.speed_bonus = function () {
-    var val = 1000 - 1000*(Date.now() - stage.begin_level)/(10*60*1000);
+    var val = Math.round(10000*(1 - (Date.now() - stage.begin_level)/(10*60*1000))/10)*10;
     if (val < 0) {
 	val = 0;
     }
@@ -605,7 +603,7 @@ var sliderIms = [new Sprite("images/slider1.png"), new Sprite("images/slider2.pn
 // game objects
 var cfg = {
     user_fall_rate_start : [150,400,400], // how long between falls at beginning
-    user_fall_rate_end : [150,150,400], // at end
+    user_fall_rate_end : [50,50,400], // at end
     grav_fall_rate : 125, // how long between falls
     fast_move : 25, // how long between moves in fast mode
     fast_start : 200, // how long to press down before fast mode
@@ -617,6 +615,7 @@ var cfg = {
 var game = {
     state:GAME_LOAD,
     last_update:Date.now(),
+    start_game:Date.now(),
     reproduce : false,
     points : new Points(),
     combo : 1,
@@ -627,6 +626,7 @@ var game = {
     pillspeed : 1,
     virspeed : 1,
     playmode : 0,
+    handicap: false,
     challenges : repeatN(false,10) // challenges completed
 };
 

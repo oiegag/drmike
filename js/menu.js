@@ -44,6 +44,11 @@ Menu.prototype.callback = function () {
     }
 };
 Menu.prototype.main = function () {
+    if (parent.kongregate != undefined) {
+	parent.kongregate.stats.submit("loaded",1);
+    }
+    game.points.standing = 0;
+    game.points.reset();
     if (! this.wait_for([bgIms.intro,virusIms,bgIms.loadtext])) {
 	return;
     }
@@ -171,6 +176,9 @@ Menu.prototype.options = function () {
     if (KEY.en in input.keyEvent) {
 	delete input.keyEvent[KEY.en];
 	this.state = this.main;
+	if (game.pillspeed != 1 || game.virspeed != 1) {
+	    game.handicap = true;
+	}
     }
     if (KEY.dn in input.keyEvent) {
 	delete input.keyEvent[KEY.dn];

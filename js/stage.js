@@ -61,23 +61,28 @@ Stage.prototype.draw_score = function () {
     } else if (game.playmode == 1) {
 	draw_text(game.survive, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     }
+    var subtotal = (game.points.pharma + game.points.combos + game.points.highdos + game.points.speed);
     draw_text(randN(1000000), [0.36*canvas.width,0.261*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.standing, [0.36*canvas.width,0.3025*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.pharma, [0.36*canvas.width,0.351*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.combos, [0.36*canvas.width,0.390*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.highdos, [0.36*canvas.width,0.430*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.speed, [0.36*canvas.width,0.472*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    draw_text('$'+ (game.points.pharma + game.points.combos + game.points.highdos + game.points.speed), [0.36*canvas.width,0.523*canvas.height],
+    draw_text('$'+ subtotal, [0.36*canvas.width,0.523*canvas.height],
 	      "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    if (parent.kongregate != undefined) {
-	parent.kongregate.stats.submit("Max_score_ch" + (game.level+1),game.points.points());
+    if (parent.kongregate != undefined && !game.handicap) {
+	if (game.playmode == 0) {
+	    parent.kongregate.stats.submit("Score_Lvl" + (game.level+1),subtotal);
+	} else if (game.playmode == 1) {
+	    parent.kongregate.stats.submit("Score_Survival",game.points.points());
+	}
     }
 };
 Stage.prototype.get_fall_rate = function () {
     var ending = cfg.user_fall_rate_end[game.pillspeed],beginning = cfg.user_fall_rate_start[game.pillspeed];
     return (ending - beginning)*
-	(Date.now() - this.begin_level)/(10*60*1000) + beginning;
+	(Date.now() - this.begin_level)/(15*60*1000) + beginning;
 };
 Stage.prototype.new_challenge = function (level) {
     var virus_key = "ytm";
@@ -110,14 +115,12 @@ Stage.prototype.levels = [
     "................",
     "................",
     "................",
-    "........t.......",
-    "............y...",
-    "...m............",
-    "................",
-    "................"],
-    ["................",
     "................",
     "................",
+    "................",
+    "......tttt......",
+    "y..............m"],
+   ["................",
     "................",
     "................",
     "................",
@@ -131,11 +134,33 @@ Stage.prototype.levels = [
     "................",
     "................",
     "................",
+    "................",
+    "......0110......",
     "......yyyy......",
     "......mmtt......",
     "......ttmm......",
     "......mmtt......"],
-    ["................",
+   ["................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......22.......",
+    ".......tt.......",
+    "......2..2......",
+    "......0..0......",
+    "......0..0......",
+    "......m..m......",
+    "....11122111....",
+    "tt..yyyyyyyy..tt",
+    "mm............mm"],
+   ["................",
     "................",
     "................",
     "................",
@@ -148,33 +173,13 @@ Stage.prototype.levels = [
     "................",
     "................",
     "................",
-    "................",
-    ".....m....y.....",
-    ".....m....y.....",
-    ".t...t....t...t.",
-    ".t...t....t...t.",
-    ".y............m.",
-    ".y............m."],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "..t.............",
-    ".............t..",
-    "...y...m........",
-    "..........m.....",
-    ".........y......",
-    "................",
-    "................"],
+    "......0..0......",
+    "......t20m......",
+    "......y11y......",
+    "......m02t......",
+    "......m02t......",
+    "......y11y......",
+    "......t20m......"],
     ["................",
     "................",
     "................",
@@ -195,34 +200,14 @@ Stage.prototype.levels = [
     "................",
     ".y..m..t..y..m..",
     "................"],
-    ["................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "...y............",
-    ".........t......",
-    ".....my...m.....",
-    ".............m..",
-    "..t.........y...",
-    "........t.......",
-    "................"],
    ["................",
     "................",
     "................",
     "................",
-    "..11122211122211",
-    "0myyyyyyyyyyyyyy",
-    "0my............y",
-    "0myyyyyyyyyyyyyy",
+    "................",
+    "................",
+    "................",
+    "..00022200022200",
     "1mtttttttttttttt",
     "1mt............t",
     "1mtttttttttttttt",
@@ -243,7 +228,7 @@ Stage.prototype.levels = [
     "................",
     "................",
     "................",
-    "0022000222000222",
+    "..02000222000222",
     "12tttttttttttttt",
     "12..............",
     "12..............",
@@ -275,6 +260,26 @@ Stage.prototype.levels = [
     "mmmmmmmmmmmmmmmm",
     "yyyyyyyyyyyyyyyy",
     "tttttttttttttttt"],
+   [".y2..........2t.",
+    ".y2..........2t.",
+    ".y2..........2t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".y2..........2t.",
+    ".y2..........2t.",
+    ".y2..........2t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".y2..........2t.",
+    ".y2..........2t.",
+    ".y2..........2t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".y0..........0t.",
+    ".ym..........mt.",
+    "................"],
     ["................",
     "................",
     "................",
@@ -484,8 +489,10 @@ Stage.prototype.end_stage = function (won) {
 	if (game.challenges.reduce(function (x,y) {return x && y;})) {
 	    ctx.drawImage(bgIms.complete.image, 0, 0);
 	    game.playmode = 1;
-	    if (parent.kongregate != undefined) {
-		parent.kongregate.stats.submit("Max_completed",1);
+	    if (parent.kongregate != undefined && !game.handicap) {
+		parent.kongregate.stats.submit("GameComplete",1);
+		parent.kongregate.stats.submit("CompleteTime",Math.round((Date.now()-game.start_game)/60));
+		console.log("CompleteTime "+Math.round((Date.now()-game.start_game)/60));
 	    }
 	}
     }
