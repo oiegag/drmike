@@ -48,7 +48,6 @@ var repeatN = function (m,n) { // m n times
     return out;
 }
 var draw_text = function (text,where,fill,font) {
-    // Score
     if (fill == undefined) {
 	fill = "rgb(250, 250, 250)";
     }
