@@ -491,8 +491,7 @@ Stage.prototype.end_stage = function (won) {
 	    game.playmode = 1;
 	    if (parent.kongregate != undefined && !game.handicap) {
 		parent.kongregate.stats.submit("GameComplete",1);
-		parent.kongregate.stats.submit("CompleteTime",Math.round((Date.now()-game.start_game)/60));
-		console.log("CompleteTime "+Math.round((Date.now()-game.start_game)/60));
+		parent.kongregate.stats.submit("CompleteTime",Math.round((Date.now()-game.start_game)/(60*1000)));
 	    }
 	}
     }
