@@ -44,8 +44,9 @@ Menu.prototype.callback = function () {
     }
 };
 Menu.prototype.main = function () {
-    if (parent.kongregate != undefined) {
+    if (parent.kongregate != undefined && !game.loaded) {
 	parent.kongregate.stats.submit("loaded",1);
+	game.loaded = true;
     }
     game.points.standing = 0;
     game.points.reset();
