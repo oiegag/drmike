@@ -626,7 +626,7 @@ var game = {
     pillspeed : 1,
     virspeed : 1,
     playmode : 0,
-    handicap: false,
+    handicap : false,
     loaded: false,
     challenges : repeatN(false,10) // challenges completed
 };

@@ -71,7 +71,7 @@ Stage.prototype.draw_score = function () {
     draw_text('$'+ subtotal, [0.36*canvas.width,0.523*canvas.height],
 	      "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    if (parent.kongregate != undefined && !game.handicap) {
+    if (parent.kongregate != undefined && (game.virspeed == 1 && game.pillspeed == 1)) {
 	if (game.playmode == 0) {
 	    parent.kongregate.stats.submit("Score_Lvl" + (game.level+1),subtotal);
 	} else if (game.playmode == 1) {
