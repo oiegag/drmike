@@ -147,8 +147,8 @@ Board.prototype.kill_matches = function (matches) {
 	}
 	game.points.pharma += 1000;
 	game.points.combos += Math.round(1000*(game.combo-1)/10)*10;
-	game.combo *= 1.1;
-	game.points.highdos += Math.round((1000*Math.pow(1.1,matches[i].length-4) - 1000)/10)*10;
+	game.combo *= 1.3;
+	game.points.highdos += Math.round((1000*Math.pow(1.2,matches[i].length-4) - 1000)/10)*10;
     }
     return this.obtain_elements();
 }
