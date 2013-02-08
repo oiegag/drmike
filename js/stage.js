@@ -55,7 +55,7 @@ Stage.prototype.new_survive = function (survive) {
 	}
     }
 };
-Stage.prototype.draw_score = function () {
+Stage.prototype.draw_score = function (won) {
     if (game.playmode == 0) {
 	draw_text(game.level+1, [0.19*canvas.width,0.206*canvas.height], "rgb(0,0,0)", "18px Helvetica");
     } else if (game.playmode == 1) {
@@ -71,7 +71,7 @@ Stage.prototype.draw_score = function () {
     draw_text('$'+ subtotal, [0.36*canvas.width,0.523*canvas.height],
 	      "rgb(0,0,0)", "18px Helvetica");
     draw_text('$'+game.points.points(), [0.36*canvas.width,0.586*canvas.height], "rgb(0,0,0)", "18px Helvetica");
-    if (parent.kongregate != undefined && (game.virspeed == 1 && game.pillspeed == 1)) {
+    if (parent.kongregate != undefined && (game.virspeed == 1 && game.pillspeed == 1) && won) {
 	if (game.playmode == 0) {
 	    parent.kongregate.stats.submit("Score_Lvl" + (game.level+1),subtotal);
 	} else if (game.playmode == 1) {
@@ -478,14 +478,14 @@ Stage.prototype.end_stage = function (won) {
 	ctx.drawImage(bgIms.lose.image, 0, 0);
 	snds.lose.play();
 	music.pause();
-	stage.draw_score();
+	stage.draw_score(won);
     } else {
 	game.state = GAME_PAUSE;
 	game.oldstate = GAME_OVER;
 	ctx.drawImage(bgIms.win.image, 0, 0);
 	snds.win.play();
 	game.points.speed_bonus();
-	stage.draw_score();
+	stage.draw_score(won);
 	if (game.challenges.reduce(function (x,y) {return x && y;})) {
 	    ctx.drawImage(bgIms.complete.image, 0, 0);
 	    game.playmode = 1;
@@ -620,7 +620,7 @@ Stage.prototype.main = function () {
 		    ctx.drawImage(bgIms.win.image, 0, 0);
 		    snds.win.play();
 		    game.points.speed_bonus();
-		    stage.draw_score();
+		    stage.draw_score(won);
 		    game.oldstate = GAME_NEWLVL;
 		    game.state = GAME_PAUSE;
 		    game.pause_time = Date.now();
