@@ -620,7 +620,7 @@ Stage.prototype.main = function () {
 		    ctx.drawImage(bgIms.win.image, 0, 0);
 		    snds.win.play();
 		    game.points.speed_bonus();
-		    stage.draw_score(won);
+		    stage.draw_score(true);
 		    game.oldstate = GAME_NEWLVL;
 		    game.state = GAME_PAUSE;
 		    game.pause_time = Date.now();
