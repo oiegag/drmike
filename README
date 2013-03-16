@@ -4,4 +4,5 @@ it seems to work alright in Firefox and IE9. It uses canvas elements, so
 older browsers shouldn't work.
 
 To play it online, go to http://compositiongames.com/drmike/
-To play it locally, download the source, unzip it, and open index.html in your browser.
+To play it locally, download the source, unzip it (if you're in Win 7, that
+means you have to copy the folder out of the zip folder), and open index.html in your browser.
