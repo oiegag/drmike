@@ -3,6 +3,6 @@ except the viruses regenerate. I've been testing it mostly in Chromium, but
 it seems to work alright in Firefox and IE9. It uses canvas elements, so
 older browsers shouldn't work.
 
-To play it online, go to http://compositiongames.com/drmike/
+To try it out in your browser, go to http://oiegag.github.io/drmike/
 To play it locally, download the source, unzip it (if you're in Win 7, that
 means you have to copy the folder out of the zip folder), and open index.html in your browser.
